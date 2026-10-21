@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const exfat = process.env.EXFAT_DRIVE === "1";
+
 const nextConfig: NextConfig = {
   // Dev-only: allow the dev server's internal requests when the app is opened
   // from a phone on the LAN or through a forwarded port in a cloud dev
@@ -11,7 +13,15 @@ const nextConfig: NextConfig = {
     "*.gitpod.io",
     "*.gitpod.dev",
   ],
+  // EXFAT_DRIVE=1 is set by .claude/launch.json when the project sits on an
+  // exFAT drive. macOS writes "._" sidecar files beside everything in .next
+  // there: Turbopack's dev cache fails to reopen with them, and the image
+  // optimizer serves them instead of the photos.
+  experimental: {
+    turbopackFileSystemCacheForDev: !exfat,
+  },
   images: {
+    unoptimized: exfat,
     // Placeholder stock photos for the public website (see lib/site/photos.ts).
     remotePatterns: [{ protocol: "https", hostname: "images.pexels.com" }],
   },

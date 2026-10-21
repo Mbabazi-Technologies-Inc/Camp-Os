@@ -22,9 +22,12 @@ import {
 import { CampPhoto } from "@/components/site/CampPhoto";
 import { CampBadge } from "@/components/site/CampBadge";
 import { Treeline } from "@/components/site/Treeline";
+import { Contours } from "@/components/site/Contours";
 import { ProgramCard } from "@/components/site/ProgramCard";
+import { LeadershipCard } from "@/components/site/LeadershipCard";
+import { FaqList } from "@/components/site/FaqList";
 import { Section, SectionHeading, Eyebrow } from "@/components/site/Section";
-import { camp, programs, retreats, faqs, season, telHref } from "@/lib/site/content";
+import { camp, programs, retreats, season, telHref } from "@/lib/site/content";
 import { photos } from "@/lib/site/photos";
 
 const gallery = [
@@ -43,12 +46,12 @@ const pillars = [
 ];
 
 const activities = [
-  { icon: Flame, label: "Campfires" },
-  { icon: Compass, label: "Outdoor adventure" },
-  { icon: Trophy, label: "Big field games" },
-  { icon: BookOpen, label: "Chapel & Bible time" },
-  { icon: Tent, label: "Cabin life" },
-  { icon: Palette, label: "Crafts & creativity" },
+  { icon: Flame, label: "Campfires", body: "Songs, skits and s'mores as the sun goes down." },
+  { icon: Compass, label: "Outdoor adventure", body: "Forest trails and time on the Pigeon River." },
+  { icon: Trophy, label: "Big field games", body: "Camp-wide games that everyone talks about." },
+  { icon: BookOpen, label: "Chapel & Bible time", body: "Daily teaching, worship and real questions." },
+  { icon: Tent, label: "Cabin life", body: "Small groups, devotions and late-night chats." },
+  { icon: Palette, label: "Crafts & creativity", body: "Projects to make and take home." },
 ];
 
 const day = [
@@ -69,7 +72,7 @@ export default function HomePage() {
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#0f2f37]/70 via-[#0f2f37]/20 to-transparent" />
         <div className="mx-auto grid min-h-[min(46rem,88vh)] max-w-6xl items-center gap-10 px-4 pb-32 pt-20 sm:px-6 lg:grid-cols-[1fr_auto]">
           <div>
-            <p className="font-script text-2xl text-glow sm:text-3xl">Summer camp &amp; retreats on the Pigeon River</p>
+            <p className="font-script text-xl text-glow text-balance sm:text-3xl">Summer camp &amp; retreats on the Pigeon River</p>
             <h1 className="mt-3 max-w-3xl font-display text-5xl font-semibold leading-[1.04] tracking-tight sm:text-7xl">
               Where summer meets the{" "}
               <span className="relative inline-block">
@@ -188,41 +191,49 @@ export default function HomePage() {
           {programs.map((p) => (
             <ProgramCard key={p.slug} program={p} />
           ))}
-          <Link
-            href="/leadership"
-            className="group relative isolate flex min-h-80 flex-col justify-end overflow-hidden rounded-2xl p-6 text-white shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
-          >
-            <CampPhoto photo={photos.woods} sizes="(min-width: 1024px) 33vw, 100vw" className="absolute inset-0 -z-20" />
-            <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[#0f2f37] via-[#0f2f37]/70 to-[#0f2f37]/20" />
-            <span className="w-fit rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur">Completed Grade 8</span>
-            <h3 className="mt-4 font-display text-2xl font-semibold tracking-tight">Leadership Training</h3>
-            <p className="mt-2 text-sm leading-relaxed text-white/85">
-              A one-week program for teens ready to serve. Limited to 10 participants.
-            </p>
-            <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-glow">
-              Learn more <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
-            </span>
-          </Link>
+          <LeadershipCard />
         </div>
       </Section>
 
-      {/* Activities */}
-      <div className="relative bg-forest text-white">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-          <div className="text-center">
-            <Eyebrow light>What campers do</Eyebrow>
-            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Every day is an adventure</h2>
+      {/* Activities, under the verse the camp's name comes from */}
+      <div className="relative isolate bg-forest text-white">
+        <Treeline className="absolute bottom-full left-0 h-12 text-forest sm:h-16" />
+        <Contours className="absolute inset-0 -z-10 h-full w-full text-white/[0.07]" />
+        <div className="reveal mx-auto grid max-w-6xl gap-14 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <figure>
+            <Eyebrow light>Planted by the stream</Eyebrow>
+            <blockquote className="mt-5 font-display text-3xl font-medium italic leading-snug tracking-tight text-balance sm:text-[2.6rem] sm:leading-[1.2]">
+              &ldquo;And he shall be like a tree planted by the rivers of water, that bringeth forth his
+              fruit in his season.&rdquo;
+            </blockquote>
+            <figcaption className="mt-5 flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.2em] text-glow">
+              <span className="h-px w-10 bg-glow/60" aria-hidden />
+              Psalm 1:3
+            </figcaption>
+            <p className="mt-8 max-w-md leading-relaxed text-white/80">
+              That&apos;s our hope for every camper: roots that go deep in God&apos;s Word, and a week by
+              the river they&apos;ll carry with them all year.
+            </p>
+          </figure>
+          <div>
+            <h2 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Every day is an adventure</h2>
+            <ul className="mt-6 grid grid-cols-2 gap-3">
+              {activities.map(({ icon: Icon, label, body }) => (
+                <li
+                  key={label}
+                  className="flex flex-col gap-3 rounded-2xl bg-[#0f2f37]/25 p-4 ring-1 ring-white/10 transition-colors hover:bg-[#0f2f37]/40 sm:flex-row sm:items-start sm:gap-4"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0f2f37]/40 text-glow ring-2 ring-glow/40">
+                    <Icon size={20} />
+                  </span>
+                  <span>
+                    <span className="block font-semibold">{label}</span>
+                    <span className="mt-0.5 hidden text-sm leading-snug text-white/75 sm:block">{body}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-            {activities.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex flex-col items-center gap-3 rounded-2xl bg-white/[0.07] px-3 py-6 text-center ring-1 ring-white/10">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#0f2f37]/40 text-glow ring-2 ring-glow/40">
-                  <Icon size={24} />
-                </span>
-                <span className="text-sm font-semibold">{label}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       </div>
 
@@ -324,19 +335,7 @@ export default function HomePage() {
         <div className="grid gap-12 lg:grid-cols-[1.3fr_1fr]">
           <div>
             <SectionHeading eyebrow="Questions" title="Good to know" />
-            <div className="mt-8 divide-y divide-border rounded-2xl border border-border bg-surface shadow-card">
-              {faqs.map((f) => (
-                <details key={f.q} className="group px-6 py-5">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold">
-                    {f.q}
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-muted text-lg text-muted transition-transform group-open:rotate-45">
-                      +
-                    </span>
-                  </summary>
-                  <p className="mt-3 text-sm leading-relaxed text-muted">{f.a}</p>
-                </details>
-              ))}
-            </div>
+            <FaqList className="mt-8" />
           </div>
           <div>
             <Eyebrow>Get in touch</Eyebrow>

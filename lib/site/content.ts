@@ -20,6 +20,8 @@ export const camp = {
   email: "info@millstream.camp",
   registrationUrl: "https://millstream.uplifterinc.com/",
   mapUrl: "https://www.google.com/maps/search/?api=1&query=880+Old+Mill+Road+Omemee+Ontario",
+  // Embedded Google Map on the contact page (no API key needed).
+  mapEmbedUrl: "https://maps.google.com/maps?q=880%20Old%20Mill%20Road%2C%20Omemee%2C%20ON&z=14&output=embed",
   accreditations: ["Ontario Camps Association", "CCI Canada"],
   mandate: ["Reaching children", "Serving the church", "Serving families"],
 };

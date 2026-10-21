@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu, X, Phone, Mail, MapPin } from "lucide-react";
 import { camp, nav, telHref } from "@/lib/site/content";
 import { CampBadge } from "./CampBadge";
@@ -10,11 +10,24 @@ import { CampBadge } from "./CampBadge";
 export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  // Once the page scrolls, the address bar folds away and the header slims down.
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <header className="sticky top-0 z-40">
       {/* Utility bar */}
-      <div className="hidden bg-[#0f2f37] text-xs text-white/75 sm:block">
+      <div
+        className={`hidden overflow-hidden bg-[#0f2f37] text-xs text-white/75 transition-[height] duration-300 sm:block ${
+          scrolled ? "h-0" : "h-9"
+        }`}
+      >
         <div className="mx-auto flex h-9 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <span className="flex items-center gap-1.5">
             <MapPin size={13} className="text-glow" />
@@ -31,10 +44,18 @@ export function SiteHeader() {
         </div>
       </div>
 
-      <div className="border-b border-border/70 bg-surface/95 backdrop-blur-md">
-        <div className="mx-auto flex h-[4.5rem] max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+      <div
+        className={`border-b bg-surface/95 backdrop-blur-md transition-shadow duration-300 ${
+          scrolled ? "border-border shadow-card" : "border-border/70"
+        }`}
+      >
+        <div
+          className={`mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 transition-[height] duration-300 sm:px-6 ${
+            scrolled ? "h-16" : "h-[4.5rem]"
+          }`}
+        >
           <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
-            <CampBadge className="h-12 w-12 drop-shadow-sm" />
+            <CampBadge className={`drop-shadow-sm transition-all duration-300 ${scrolled ? "h-10 w-10" : "h-12 w-12"}`} />
             <span className="leading-tight">
               <span className="block font-display text-xl font-semibold tracking-tight">{camp.shortName}</span>
               <span className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-forest">
