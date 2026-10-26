@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LinkButton } from "@/components/ui/Button";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { initials } from "@/lib/initials";
 import { EMAIL_URGENCY_LABELS, EMAIL_URGENCY_STYLES } from "@/lib/labels";
 import { Plus, Check, X, RefreshCw, Mail } from "lucide-react";
 
@@ -90,18 +91,32 @@ export default async function EmailAssistantPage({
       )}
 
       <section className="mb-8">
-        <h2 className="font-semibold text-foreground mb-2">Awaiting your review</h2>
-        <Card className="px-3">
+        <h2 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+          Awaiting your review
+          {pending && pending.length > 0 && (
+            <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-white">{pending.length}</span>
+          )}
+        </h2>
+        <Card className="px-3 overflow-hidden">
           {pending && pending.length > 0 ? (
             <div className="divide-y divide-border">
               {pending.map((draft) => (
                 <Link
                   key={draft.id}
                   href={`/email-assistant/${draft.id}`}
-                  className="flex items-center gap-3 py-3 px-1"
+                  className="group relative flex items-center gap-3 py-3 px-1"
                 >
+                  {(draft.urgency === "urgent" || draft.urgency === "high") && (
+                    <span
+                      className={`absolute -left-3 inset-y-2 w-1 rounded-r-full ${draft.urgency === "urgent" ? "bg-danger" : "bg-accent"}`}
+                      aria-hidden
+                    />
+                  )}
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
+                    {initials(draft.sender_name || draft.sender_email || "?")}
+                  </span>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">
+                    <p className="font-medium text-foreground truncate group-hover:text-primary transition-colors">
                       {draft.sender_name || draft.sender_email || "Unknown sender"}
                       {draft.source === "gmail" && (
                         <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-muted">

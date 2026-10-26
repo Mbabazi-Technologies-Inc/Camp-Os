@@ -2,7 +2,9 @@ import Link from "next/link";
 import { requireCamp } from "@/lib/auth";
 import { createTask } from "@/app/(app)/tasks/actions";
 import { addStarterPack } from "@/app/(app)/knowledge-base/actions";
-import { todayISODate, tomorrowISODate, formatRelativeTime } from "@/lib/dates";
+import { todayISODate, tomorrowISODate, formatRelativeTime, formatDueDate } from "@/lib/dates";
+import { seasonFor, SEASON_LABELS } from "@/lib/season";
+import { GroupRow } from "@/components/groups/GroupRow";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -10,6 +12,8 @@ import { LinkButton } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Field";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { TaskItem } from "@/components/tasks/TaskItem";
+import { Contours } from "@/components/site/Contours";
+import { Treeline } from "@/components/site/Treeline";
 import { EMAIL_URGENCY_LABELS, EMAIL_URGENCY_STYLES } from "@/lib/labels";
 import {
   Mail,
@@ -20,9 +24,25 @@ import {
   Sparkles,
   CheckCircle2,
   Circle,
+  Trees,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+function isoDaysFromToday(days: number) {
+  return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+}
+
+// "today", "tomorrow", "Friday" or "Nov 6" for an arrival date.
+function arrivalWord(date: string | null) {
+  const label = formatDueDate(date).label.replace(/^Due /, "");
+  return label === "today" || label === "tomorrow" ? label : label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+// "a, b and c"
+function joinList(parts: string[]) {
+  return parts.length < 2 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
 
 function greetingForHour(hour: number) {
   if (hour < 12) return "Good morning";
@@ -47,6 +67,7 @@ export default async function DashboardPage() {
     { count: kbCount },
     { count: emailEverCount },
     { data: gmailAccount },
+    { data: retreatGroups },
   ] = await Promise.all([
     supabase.from("camps").select("name").eq("id", campId).maybeSingle(),
     supabase
@@ -96,7 +117,25 @@ export default async function DashboardPage() {
       .select("id", { count: "exact", head: true })
       .eq("camp_id", campId),
     supabase.from("gmail_accounts").select("email").eq("camp_id", campId).maybeSingle(),
+    supabase
+      .from("retreat_groups")
+      .select("*")
+      .eq("camp_id", campId)
+      .neq("status", "cancelled")
+      .order("arrival_date", { ascending: true, nullsFirst: false }),
   ]);
+
+  const season = seasonFor(new Date());
+  const upcomingGroups = (retreatGroups ?? [])
+    .filter((g) => {
+      const lastDay = g.departure_date ?? g.arrival_date;
+      return lastDay && lastDay >= today;
+    })
+    .slice(0, 4);
+  // A group arriving within the next week is worth a line in the briefing.
+  const nextGroup = upcomingGroups.find(
+    (g) => g.status === "confirmed" && g.arrival_date && g.arrival_date <= isoDaysFromToday(7)
+  );
 
   const firstName = fullName?.split(" ")?.[0];
   const now = new Date();
@@ -130,52 +169,63 @@ export default async function DashboardPage() {
   if ((overdueCount ?? 0) > 0) {
     briefingParts.push(`${overdueCount} task${overdueCount === 1 ? "" : "s"} overdue`);
   }
+  if (nextGroup) {
+    briefingParts.push(
+      `${nextGroup.name}${nextGroup.headcount ? ` (${nextGroup.headcount})` : ""} arriving ${arrivalWord(nextGroup.arrival_date)}`
+    );
+  }
+
+  const retreatSection = (
+    <>
+      {upcomingGroups.length > 0 && (
+        <section className={season === "summer" ? "mt-8" : "mb-8"}>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-semibold text-foreground">Upcoming retreat groups</h2>
+            <Link href="/groups" className="text-sm font-medium text-primary hover:underline">
+              All groups
+            </Link>
+          </div>
+          <Card className="px-3">
+            <div className="divide-y divide-border">
+              {upcomingGroups.map((g) => (
+                <GroupRow key={g.id} group={g} />
+              ))}
+            </div>
+          </Card>
+        </section>
+      )}
+    </>
+  );
 
   return (
     <div>
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-3xl bg-stream text-white p-5 md:p-6 mb-5 shadow-card">
-        <div
-          className="absolute -right-10 -top-14 h-44 w-44 rounded-full bg-white/10"
-          aria-hidden
-        />
-        <div
-          className="absolute -right-2 top-16 h-24 w-24 rounded-full bg-white/10"
-          aria-hidden
-        />
-        <svg
-          className="absolute bottom-0 inset-x-0 w-full text-white/10"
-          viewBox="0 0 400 40"
-          preserveAspectRatio="none"
-          aria-hidden
-        >
-          <path
-            d="M0 25 Q 50 10, 100 25 T 200 25 T 300 25 T 400 25 V 40 H 0 Z"
-            fill="currentColor"
-          />
-          <path
-            d="M0 32 Q 50 20, 100 32 T 200 32 T 300 32 T 400 32 V 40 H 0 Z"
-            fill="currentColor"
-          />
-        </svg>
+      <div className="relative isolate overflow-hidden rounded-3xl bg-stream text-white p-5 pb-12 md:p-7 md:pb-14 mb-5 shadow-card">
+        <Contours className="absolute inset-0 h-full w-full text-white/[0.08]" />
+        <Treeline className="absolute -bottom-px inset-x-0 h-10 text-white/10 md:h-12" />
         <div className="relative">
-          <p className="flex items-center gap-1.5 text-sm text-white/80">
-            <Sun size={15} />
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-white/80">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold text-white">
+              {season === "summer" ? <Sun size={13} /> : <Trees size={13} />}
+              {SEASON_LABELS[season]}
+            </span>
             {now.toLocaleDateString("en-US", {
               weekday: "long",
               month: "long",
               day: "numeric",
             })}
           </p>
-          <h1 className="text-2xl font-semibold mt-1">
+          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight mt-1">
             {greetingForHour(now.getHours())}
             {firstName ? `, ${firstName}` : ""}
           </h1>
           <p className="text-sm text-white/80 mt-1">
             {caughtUp
-              ? "All clear - go be with the campers."
+              ? season === "summer"
+                ? "All clear - go be with the campers."
+                : "All clear - enjoy the quiet between groups."
               : briefingParts.length > 0
-                ? `Today: ${briefingParts.join(" and ")}.`
+                ? `Today: ${joinList(briefingParts)}.`
                 : "Here's what needs you before you head out."}
           </p>
           {(topUrgentEmail || topOverdueTask) && (
@@ -278,7 +328,7 @@ export default async function DashboardPage() {
         <Link href="/tasks" className="group">
           <Card className="p-4 transition-shadow group-hover:shadow-card-hover">
             <div className="flex items-center justify-between">
-              <p className="text-3xl font-semibold text-foreground">
+              <p className="font-display text-4xl font-semibold text-foreground">
                 {openTaskCount ?? 0}
               </p>
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
@@ -297,7 +347,7 @@ export default async function DashboardPage() {
         <Link href="/email-assistant" className="group">
           <Card className="p-4 transition-shadow group-hover:shadow-card-hover">
             <div className="flex items-center justify-between">
-              <p className="text-3xl font-semibold text-foreground">
+              <p className="font-display text-4xl font-semibold text-foreground">
                 {pendingEmailCount ?? 0}
               </p>
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest-soft text-forest">
@@ -341,7 +391,10 @@ export default async function DashboardPage() {
         </form>
       </Card>
 
-      <section className="mb-8">
+      {season === "retreat" && retreatSection}
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-6">
+      <section>
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-semibold text-foreground">Due today &amp; overdue</h2>
           <Link
@@ -430,6 +483,9 @@ export default async function DashboardPage() {
           )}
         </Card>
       </section>
+      </div>
+
+      {season === "summer" && retreatSection}
     </div>
   );
 }

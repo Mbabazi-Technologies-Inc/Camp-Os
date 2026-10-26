@@ -288,6 +288,40 @@ create trigger staff_set_updated_at
   for each row execute procedure public.set_updated_at();
 
 -- ---------------------------------------------------------------------------
+-- retreat_groups: retreat-centre bookings outside the summer camp season
+-- (groups of 20-110, September to June).
+-- ---------------------------------------------------------------------------
+create table if not exists public.retreat_groups (
+  id uuid primary key default gen_random_uuid(),
+  camp_id uuid not null references public.camps (id) on delete cascade,
+  name text not null,
+  contact_name text,
+  contact_email text,
+  contact_phone text,
+  arrival_date date,
+  departure_date date,
+  headcount integer check (headcount is null or headcount >= 0),
+  status text not null default 'inquiry'
+    check (status in ('inquiry', 'tentative', 'confirmed', 'cancelled')),
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.retreat_groups enable row level security;
+
+create policy "Members manage their camp retreat groups" on public.retreat_groups
+  for all using (camp_id = public.user_camp_id())
+  with check (camp_id = public.user_camp_id());
+
+create index if not exists retreat_groups_camp_id_idx on public.retreat_groups (camp_id, arrival_date);
+
+drop trigger if exists retreat_groups_set_updated_at on public.retreat_groups;
+create trigger retreat_groups_set_updated_at
+  before update on public.retreat_groups
+  for each row execute procedure public.set_updated_at();
+
+-- ---------------------------------------------------------------------------
 -- email_drafts: pasted or Gmail-synced emails, AI triage, and drafted replies.
 -- The AI never sends anything - status only ever moves from pending to
 -- approved/dismissed by a human in the UI. Approving a Gmail-sourced email

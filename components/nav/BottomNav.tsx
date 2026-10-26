@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { NAV_ITEMS } from "./nav-items";
 
 // Floating dock: detached pill bar with blur, hovering above the safe area.
-export function BottomNav() {
+export function BottomNav({ badges = {} }: { badges?: Record<string, number> }) {
   const pathname = usePathname();
 
   return (
@@ -13,7 +13,7 @@ export function BottomNav() {
       className="md:hidden fixed bottom-0 inset-x-0 z-20 px-3"
       style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.625rem)" }}
     >
-      <div className="mx-auto max-w-md grid grid-cols-5 rounded-3xl bg-surface/90 backdrop-blur-xl border border-border shadow-dock">
+      <div className="mx-auto max-w-md grid grid-cols-6 rounded-3xl bg-surface/90 backdrop-blur-xl border border-border shadow-dock">
         {NAV_ITEMS.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -26,11 +26,16 @@ export function BottomNav() {
               }`}
             >
               <span
-                className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${
+                className={`relative flex h-7 w-11 items-center justify-center rounded-full transition-colors ${
                   active ? "bg-primary-soft" : ""
                 }`}
               >
                 <Icon size={19} strokeWidth={active ? 2.4 : 2} />
+                {(badges[item.href] ?? 0) > 0 && (
+                  <span className="absolute -right-0.5 -top-1 min-w-4 rounded-full bg-accent px-1 text-center text-[10px] font-semibold leading-4 text-white ring-2 ring-surface">
+                    {badges[item.href]}
+                  </span>
+                )}
               </span>
               {item.label}
             </Link>

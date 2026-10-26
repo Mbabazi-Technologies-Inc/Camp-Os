@@ -6,6 +6,7 @@ import { requireCamp } from "@/lib/auth";
 import { KB_STARTERS } from "@/lib/kb-starters";
 import type { KnowledgeCategory } from "@/lib/supabase/database.types";
 import { field } from "@/lib/form";
+import { withSaved } from "@/lib/saved";
 
 export async function createKnowledgeEntry(formData: FormData) {
   const { supabase, campId } = await requireCamp();
@@ -41,7 +42,7 @@ export async function updateKnowledgeEntry(id: string, formData: FormData) {
     .eq("camp_id", campId);
 
   revalidatePath("/knowledge-base");
-  redirect("/knowledge-base");
+  redirect(withSaved("/knowledge-base", "Entry saved"));
 }
 
 export async function deleteKnowledgeEntry(id: string) {
@@ -50,7 +51,7 @@ export async function deleteKnowledgeEntry(id: string) {
   await supabase.from("knowledge_base").delete().eq("id", id).eq("camp_id", campId);
 
   revalidatePath("/knowledge-base");
-  redirect("/knowledge-base");
+  redirect(withSaved("/knowledge-base", "Entry deleted"));
 }
 
 // Adds the starter pack of common camp policies for the director to edit.

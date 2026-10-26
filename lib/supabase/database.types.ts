@@ -6,6 +6,8 @@ export type TaskStatus = "open" | "done";
 
 export type MemberRole = "director" | "staff";
 
+export type RetreatGroupStatus = "inquiry" | "tentative" | "confirmed" | "cancelled";
+
 export type KnowledgeCategory =
   | "rules"
   | "pickup_times"
@@ -180,6 +182,29 @@ export interface Database {
           last_name: string;
         };
         Update: Partial<Database["public"]["Tables"]["staff"]["Row"]>;
+        Relationships: [];
+      };
+      retreat_groups: {
+        Row: {
+          id: string;
+          camp_id: string;
+          name: string;
+          contact_name: string | null;
+          contact_email: string | null;
+          contact_phone: string | null;
+          arrival_date: string | null;
+          departure_date: string | null;
+          headcount: number | null;
+          status: RetreatGroupStatus;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["retreat_groups"]["Row"]> & {
+          camp_id: string;
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["retreat_groups"]["Row"]>;
         Relationships: [];
       };
       email_drafts: {

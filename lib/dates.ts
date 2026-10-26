@@ -48,3 +48,19 @@ export function formatRelativeTime(isoTimestamp: string): string {
   if (diffDays < 7) return `${diffDays}d ago`;
   return new Date(isoTimestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
+
+// "Oct 30 - Nov 1" for a stay, or a single date when there's no departure.
+export function formatDateRange(start: string | null, end: string | null): string {
+  if (!start) return "Dates to be confirmed";
+  const fmt = (d: string) =>
+    new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return end && end !== start ? `${fmt(start)} - ${fmt(end)}` : fmt(start);
+}
+
+export function nightsBetween(start: string | null, end: string | null): number | null {
+  if (!start || !end) return null;
+  const nights = Math.round(
+    (new Date(end + "T00:00:00").getTime() - new Date(start + "T00:00:00").getTime()) / 86_400_000
+  );
+  return nights >= 0 ? nights : null;
+}

@@ -9,7 +9,8 @@ import { LinkButton } from "@/components/ui/Button";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { formatRelativeTime } from "@/lib/dates";
-import { Mail, UserPlus } from "lucide-react";
+import { LogOut, Mail, Tent, UserPlus, UserRound, Users } from "lucide-react";
+import { signOut } from "@/app/login/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function SettingsPage({
   searchParams: Promise<{ notice?: string; error?: string }>;
 }) {
   const { notice, error } = await searchParams;
-  const { supabase, campId, role, userId } = await requireCamp();
+  const { supabase, campId, role, userId, fullName, userEmail } = await requireCamp();
 
   const [{ data: camp }, { data: members }, { data: invites }, { data: gmailAccount }] =
     await Promise.all([
@@ -56,8 +57,14 @@ export default async function SettingsPage({
         <p className="mb-4 rounded-lg bg-danger-soft text-danger text-sm px-3 py-2">{error}</p>
       )}
 
-      <section className="mb-6">
-        <h2 className="font-semibold text-foreground mb-2">Camp</h2>
+      <section className="grid gap-3 border-t border-border py-6 first-of-type:border-t-0 first-of-type:pt-0 md:grid-cols-[14rem_1fr] md:gap-8">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
+            <Tent size={17} className="text-forest" /> Camp
+          </h2>
+          <p className="mt-1 text-sm text-muted">The name staff see across the camp office and in drafted replies.</p>
+        </div>
+        <div className="min-w-0">
         <Card className="p-4">
           <form action={updateCampName} className="flex flex-col sm:flex-row gap-3 sm:items-end">
             <div className="flex-1">
@@ -76,10 +83,17 @@ export default async function SettingsPage({
             <p className="text-xs text-muted mt-2">Only directors can rename the camp.</p>
           )}
         </Card>
+        </div>
       </section>
 
-      <section className="mb-6">
-        <h2 className="font-semibold text-foreground mb-2">Gmail</h2>
+      <section className="grid gap-3 border-t border-border py-6 first-of-type:border-t-0 first-of-type:pt-0 md:grid-cols-[14rem_1fr] md:gap-8">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
+            <Mail size={17} className="text-forest" /> Gmail
+          </h2>
+          <p className="mt-1 text-sm text-muted">Pull your inbox in automatically. Approved replies are saved as Gmail drafts, never sent.</p>
+        </div>
+        <div className="min-w-0">
         <Card className="p-4">
           {gmailAccount ? (
             <div className="flex items-center justify-between gap-3">
@@ -127,10 +141,17 @@ export default async function SettingsPage({
             </div>
           )}
         </Card>
+        </div>
       </section>
 
-      <section>
-        <h2 className="font-semibold text-foreground mb-2">Team</h2>
+      <section className="grid gap-3 border-t border-border py-6 first-of-type:border-t-0 first-of-type:pt-0 md:grid-cols-[14rem_1fr] md:gap-8">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
+            <Users size={17} className="text-forest" /> Team
+          </h2>
+          <p className="mt-1 text-sm text-muted">Who can sign in to the camp office, and their role.</p>
+        </div>
+        <div className="min-w-0">
         <Card className="px-4 py-2 mb-3">
           <div className="divide-y divide-border">
             {(members ?? []).map((member) => (
@@ -200,6 +221,26 @@ export default async function SettingsPage({
             )}
           </Card>
         )}
+        </div>
+      </section>
+
+      <section className="grid gap-3 border-t border-border py-6 md:grid-cols-[14rem_1fr] md:gap-8">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
+            <UserRound size={17} className="text-forest" /> Account
+          </h2>
+          <p className="mt-1 text-sm text-muted">Signed in to the camp office on this device.</p>
+        </div>
+        <div className="min-w-0">
+          <Card className="flex items-center justify-between gap-3 p-4">
+            <p className="min-w-0 truncate text-sm font-medium text-foreground">{userEmail ?? fullName ?? "Signed in"}</p>
+            <form action={signOut}>
+              <SubmitButton pendingText="Signing out..." variant="secondary">
+                <LogOut size={15} /> Sign out
+              </SubmitButton>
+            </form>
+          </Card>
+        </div>
       </section>
     </div>
   );

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCamp } from "@/lib/auth";
 import { field } from "@/lib/form";
+import { withSaved } from "@/lib/saved";
 
 function revalidatePeople() {
   revalidatePath("/people/campers");
@@ -54,14 +55,14 @@ export async function updateGuardian(id: string, formData: FormData) {
     .eq("camp_id", campId);
 
   revalidatePeople();
-  redirect("/people/guardians");
+  redirect(withSaved("/people/guardians", "Guardian saved"));
 }
 
 export async function deleteGuardian(id: string) {
   const { supabase, campId } = await requireCamp();
   await supabase.from("guardians").delete().eq("id", id).eq("camp_id", campId);
   revalidatePeople();
-  redirect("/people/guardians");
+  redirect(withSaved("/people/guardians", "Guardian deleted"));
 }
 
 // --- Campers -----------------------------------------------------------------
@@ -115,14 +116,14 @@ export async function updateCamper(id: string, formData: FormData) {
     .eq("camp_id", campId);
 
   revalidatePeople();
-  redirect("/people/campers");
+  redirect(withSaved("/people/campers", "Camper saved"));
 }
 
 export async function deleteCamper(id: string) {
   const { supabase, campId } = await requireCamp();
   await supabase.from("campers").delete().eq("id", id).eq("camp_id", campId);
   revalidatePeople();
-  redirect("/people/campers");
+  redirect(withSaved("/people/campers", "Camper deleted"));
 }
 
 // --- Staff -------------------------------------------------------------------
@@ -168,12 +169,12 @@ export async function updateStaff(id: string, formData: FormData) {
     .eq("camp_id", campId);
 
   revalidatePeople();
-  redirect("/people/staff");
+  redirect(withSaved("/people/staff", "Staff member saved"));
 }
 
 export async function deleteStaff(id: string) {
   const { supabase, campId } = await requireCamp();
   await supabase.from("staff").delete().eq("id", id).eq("camp_id", campId);
   revalidatePeople();
-  redirect("/people/staff");
+  redirect(withSaved("/people/staff", "Staff member deleted"));
 }

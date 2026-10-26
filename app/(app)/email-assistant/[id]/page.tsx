@@ -13,13 +13,15 @@ import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { EmailDraftEditor } from "@/components/email/EmailDraftEditor";
 import { RegenerateForm } from "@/components/email/RegenerateForm";
-import { formatDueDate } from "@/lib/dates";
+import { formatDueDate, formatRelativeTime } from "@/lib/dates";
+import { initials } from "@/lib/initials";
 import {
   EMAIL_CATEGORY_LABELS,
   EMAIL_URGENCY_LABELS,
   EMAIL_URGENCY_STYLES,
 } from "@/lib/labels";
-import { Sparkles, ListTodo, Check } from "lucide-react";
+import Link from "next/link";
+import { Sparkles, ListTodo, Check, ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +50,12 @@ export default async function EmailDraftPage({
 
   return (
     <div>
+      <Link
+        href="/email-assistant"
+        className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-primary"
+      >
+        <ArrowLeft size={15} /> All emails
+      </Link>
       <PageHeader
         title={draft.sender_name || draft.sender_email || "Email"}
         description={draft.subject || draft.sender_email || undefined}
@@ -74,11 +82,14 @@ export default async function EmailDraftPage({
         <p className="mb-4 rounded-lg bg-danger-soft text-danger text-sm px-3 py-2">{error}</p>
       )}
 
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-start">
+        <div>
       {draft.ai_summary && (
         <div className="mb-4 flex items-start gap-2.5 rounded-2xl bg-primary-soft px-4 py-3">
           <Sparkles size={16} className="text-primary mt-0.5 shrink-0" />
           <div className="min-w-0">
-            <p className="text-sm text-foreground">{draft.ai_summary}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-primary">AI summary</p>
+            <p className="text-sm text-foreground mt-0.5">{draft.ai_summary}</p>
             {draft.category && (
               <p className="text-xs text-muted mt-0.5">
                 Filed under {EMAIL_CATEGORY_LABELS[draft.category]}
@@ -124,15 +135,27 @@ export default async function EmailDraftPage({
         </Card>
       )}
 
-      <Card className="p-4 mb-4">
-        <p className="text-xs font-medium text-muted uppercase tracking-wide mb-2">
-          Original email
-        </p>
-        <p className="text-sm text-foreground whitespace-pre-wrap max-h-64 overflow-y-auto">
+      <Card className="mb-4 overflow-hidden">
+        <div className="flex items-center gap-3 border-b border-border bg-surface-muted/60 px-4 py-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
+            {initials(draft.sender_name || draft.sender_email || "?")}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-foreground">
+              {draft.sender_name || draft.sender_email || "Unknown sender"}
+            </p>
+            <p className="truncate text-xs text-muted">
+              {draft.sender_email ?? "Pasted email"} &middot; {formatRelativeTime(draft.created_at)}
+            </p>
+          </div>
+        </div>
+        <p className="max-h-[28rem] overflow-y-auto whitespace-pre-wrap px-4 py-4 text-sm leading-relaxed text-foreground">
           {draft.original_email}
         </p>
       </Card>
 
+        </div>
+        <div className="lg:sticky lg:top-6">
       {draft.status === "pending" ? (
         <>
           <Card className="p-4 mb-4">
@@ -147,7 +170,7 @@ export default async function EmailDraftPage({
           </Card>
 
           <Card className="p-4 mb-4">
-            <p className="text-sm font-medium text-foreground mb-2">Not quite right?</p>
+            <p className="font-display text-lg font-semibold text-foreground mb-2">Not quite right?</p>
             <RegenerateForm regenerateAction={regenerateWithId} />
           </Card>
         </>
@@ -161,6 +184,9 @@ export default async function EmailDraftPage({
           </p>
         </Card>
       )}
+
+        </div>
+      </div>
 
       <form action={deleteWithId}>
         <ConfirmButton

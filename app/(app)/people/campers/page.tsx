@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createCamper } from "../actions";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { initials } from "@/lib/initials";
+import { AddPanel } from "@/components/ui/AddPanel";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input, Select, Textarea, Label } from "@/components/ui/Field";
@@ -43,7 +45,7 @@ export default async function CampersPage({
         description="Basic records for the campers in your care."
       />
 
-      <Card className="p-4 mb-6">
+      <AddPanel label="Add camper">
         <form action={createCamper} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -87,7 +89,7 @@ export default async function CampersPage({
             Add camper
           </SubmitButton>
         </form>
-      </Card>
+      </AddPanel>
 
       <SearchBox placeholder="Search campers by name or cabin..." defaultValue={q} />
 
@@ -100,10 +102,13 @@ export default async function CampersPage({
                 <Link
                   key={camper.id}
                   href={`/people/campers/${camper.id}`}
-                  className="flex items-center justify-between gap-3 py-3 px-1"
+                  className="group flex items-center gap-3 py-3 px-1"
                 >
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground truncate">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold bg-forest-soft text-forest">
+                    {initials(`${camper.first_name} ${camper.last_name}`)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground truncate transition-colors group-hover:text-primary">
                       {camper.first_name} {camper.last_name}
                     </p>
                     <p className="text-sm text-muted truncate">

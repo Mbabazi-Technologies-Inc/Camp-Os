@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createGuardian } from "../actions";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { initials } from "@/lib/initials";
+import { AddPanel } from "@/components/ui/AddPanel";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input, Textarea, Label } from "@/components/ui/Field";
@@ -31,7 +33,7 @@ export default async function GuardiansPage({
     <div>
       <PageHeader title="Guardians" description="Parent and guardian contact records." />
 
-      <Card className="p-4 mb-6">
+      <AddPanel label="Add guardian">
         <form action={createGuardian} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -63,7 +65,7 @@ export default async function GuardiansPage({
             Add guardian
           </SubmitButton>
         </form>
-      </Card>
+      </AddPanel>
 
       <SearchBox placeholder="Search guardians by name or email..." defaultValue={q} />
 
@@ -74,10 +76,13 @@ export default async function GuardiansPage({
               <Link
                 key={guardian.id}
                 href={`/people/guardians/${guardian.id}`}
-                className="flex items-center justify-between gap-3 py-3 px-1"
+                className="group flex items-center gap-3 py-3 px-1"
               >
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground truncate">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold bg-primary-soft text-primary">
+                  {initials(`${guardian.first_name} ${guardian.last_name}`)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground truncate transition-colors group-hover:text-primary">
                     {guardian.first_name} {guardian.last_name}
                   </p>
                   <p className="text-sm text-muted truncate">

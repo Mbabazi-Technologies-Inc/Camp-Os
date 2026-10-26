@@ -153,6 +153,16 @@ const COLUMN_DEFAULTS: Record<string, DemoRow> = {
   guardians: { email: null, phone: null, relationship: null, notes: null },
   campers: { cabin: null, age: null, guardian_id: null, notes: null },
   staff: { role: null, email: null, phone: null, notes: null },
+  retreat_groups: {
+    contact_name: null,
+    contact_email: null,
+    contact_phone: null,
+    arrival_date: null,
+    departure_date: null,
+    headcount: null,
+    status: "inquiry",
+    notes: null,
+  },
   email_drafts: {
     sender_name: null,
     sender_email: null,

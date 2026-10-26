@@ -5,9 +5,11 @@ import { redirect } from "next/navigation";
 import { requireCamp } from "@/lib/auth";
 import type { TaskPriority } from "@/lib/supabase/database.types";
 import { field } from "@/lib/form";
+import { withSaved } from "@/lib/saved";
 
 function revalidateTaskViews() {
-  revalidatePath("/tasks");
+  // "layout" also refreshes each task's own page.
+  revalidatePath("/tasks", "layout");
   revalidatePath("/dashboard");
 }
 
@@ -49,6 +51,7 @@ export async function updateTask(id: string, formData: FormData) {
     .eq("camp_id", campId);
 
   revalidateTaskViews();
+  redirect(withSaved(`/tasks/${id}`, "Task saved"));
 }
 
 export async function toggleTaskStatus(id: string, nextStatus: "open" | "done") {
@@ -69,5 +72,5 @@ export async function deleteTask(id: string) {
   await supabase.from("tasks").delete().eq("id", id).eq("camp_id", campId);
 
   revalidateTaskViews();
-  redirect("/tasks");
+  redirect(withSaved("/tasks", "Task deleted"));
 }

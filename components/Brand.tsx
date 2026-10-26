@@ -1,12 +1,7 @@
-import { Waves } from "lucide-react";
+import { CampBadge } from "@/components/site/CampBadge";
 
-// The Mill Stream brand mark: a waves glyph on the stream gradient.
+// The Mill Stream brand mark: the round camp-patch badge from the public site.
 export function BrandMark({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
-  const box = size === "lg" ? "h-12 w-12 rounded-2xl" : size === "md" ? "h-9 w-9 rounded-xl" : "h-8 w-8 rounded-lg";
-  const icon = size === "lg" ? 24 : size === "md" ? 18 : 16;
-  return (
-    <div className={`flex items-center justify-center ${box} bg-stream text-white shadow-sm`}>
-      <Waves size={icon} strokeWidth={2.2} />
-    </div>
-  );
+  const box = size === "lg" ? "h-14 w-14" : size === "md" ? "h-11 w-11" : "h-9 w-9";
+  return <CampBadge className={`${box} shrink-0 drop-shadow-sm`} />;
 }
