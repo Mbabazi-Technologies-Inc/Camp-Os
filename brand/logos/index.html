@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mill Stream Merch Logos</title>
+<style>
+  :root { --ink: #0f2f37; --muted: #5b6b70; --paper: #f7f4ee; --line: #e3ddd2; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 1120px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { font: 600 34px/1.15 Georgia, serif; margin: 0 0 6px; }
+  h2 { font: 600 24px/1.2 Georgia, serif; margin: 48px 0 4px; }
+  h3 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 28px 0 10px; }
+  p.lede { color: var(--muted); margin: 0 0 8px; max-width: 64ch; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .tile { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: #fff; }
+  .tile .art { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; padding: 26px; }
+  .tile.wide .art { aspect-ratio: 16 / 9; }
+  .tile img { max-width: 100%; max-height: 100%; display: block; }
+  .tile .cap { padding: 9px 12px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; }
+  .tile .cap a { color: var(--ink); font-weight: 600; text-decoration: none; }
+  .garments { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+  .sweat { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: #fff; }
+  .sweat svg.shirt { display: block; width: 100%; height: auto; }
+  .sweat .cap { padding: 9px 12px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); }
+  .heather { background: #c9c9c6; } .navy { background: #1b2a3a; } .forest { background: #2e4a35; } .cream { background: #efe7d6; } .white { background: #fff; } .charcoal { background: #3a3d40; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mill Stream merch logos</h1>
+  <p class="lede">Two versions for sweatshirts, shirts, water bottles and stickers. Every file is a vector SVG with the lettering converted to shapes, so printers don't need any fonts. There's a 3000&nbsp;px transparent PNG next to each SVG for anyone who asks for an image.</p>
+  <p class="lede"><strong>Full colour</strong> suits embroidery, stickers and digital printing. <strong>One colour</strong> is a single screen-print ink, with the details cut out so the garment shows through: navy on light garments, white on dark ones.</p>
+
+  <h2>On sweatshirts</h2>
+  <p class="lede">Rough placement previews, not exact garment colours.</p>
+  <div class="garments" id="garments"></div>
+
+  <h2>Version 1: the current badge</h2>
+  <p class="lede">The name and location sit in the ring, the way the boss liked it. Works best as a round chest or back print, a patch or a sticker.</p>
+  <div class="grid">
+    <figure class="tile" style="margin:0"><div class="art white"><img src="version-1-badge/millstream-badge-full-colour.svg" alt=""></div><figcaption class="cap">Full colour <a href="version-1-badge/millstream-badge-full-colour.svg">SVG</a></figcaption></figure>
+    <figure class="tile" style="margin:0"><div class="art heather"><img src="version-1-badge/millstream-badge-1colour-navy.svg" alt=""></div><figcaption class="cap">One colour, navy <a href="version-1-badge/millstream-badge-1colour-navy.svg">SVG</a></figcaption></figure>
+    <figure class="tile" style="margin:0"><div class="art navy"><img src="version-1-badge/millstream-badge-1colour-white.svg" alt=""></div><figcaption class="cap">One colour, white <a href="version-1-badge/millstream-badge-1colour-white.svg">SVG</a></figcaption></figure>
+  </div>
+
+  <h2>Version 2: mark with the name beside or under it</h2>
+  <p class="lede">The ring lettering comes out and the scene gets bigger, so it stays clear even small (a sleeve, a cap, a pen). The name and location are set beside or below it in the website's typefaces.</p>
+
+  <h3>Mark on its own</h3>
+  <div class="grid">
+    <figure class="tile" style="margin:0"><div class="art white"><img src="version-2-mark/millstream-mark-full-colour.svg" alt=""></div><figcaption class="cap">Full colour <a href="version-2-mark/millstream-mark-full-colour.svg">SVG</a></figcaption></figure>
+    <figure class="tile" style="margin:0"><div class="art heather"><img src="version-2-mark/millstream-mark-1colour-navy.svg" alt=""></div><figcaption class="cap">One colour, navy <a href="version-2-mark/millstream-mark-1colour-navy.svg">SVG</a></figcaption></figure>
+    <figure class="tile" style="margin:0"><div class="art navy"><img src="version-2-mark/millstream-mark-1colour-white.svg" alt=""></div><figcaption class="cap">One colour, white <a href="version-2-mark/millstream-mark-1colour-white.svg">SVG</a></figcaption></figure>
+  </div>
+
+  <h3>Stacked: name under the mark</h3>
+  <div class="grid" id="stacked"></div>
+
+  <h3>Horizontal: name beside the mark</h3>
+  <div class="grid" id="horizontal"></div>
+</main>
+<script>
+  const ways = [
+    ["full-colour-on-light", "Full colour, light garments", "white"],
+    ["full-colour-on-dark", "Full colour, dark garments", "navy"],
+    ["1colour-navy", "One colour, navy", "heather"],
+    ["1colour-white", "One colour, white", "forest"],
+  ];
+  for (const layout of ["stacked", "horizontal"]) {
+    const grid = document.getElementById(layout);
+    for (const [key, label, bg] of ways) {
+      const src = `version-2-mark/${layout}/millstream-${layout}-${key}.svg`;
+      grid.insertAdjacentHTML("beforeend",
+        `<figure class="tile ${layout === "horizontal" ? "wide" : ""}" style="margin:0"><div class="art ${bg}"><img src="${src}" alt=""></div><figcaption class="cap">${label} <a href="${src}">SVG</a></figcaption></figure>`);
+    }
+  }
+
+  // Simple crewneck silhouettes with the logo placed on the chest.
+  const shirts = [
+    ["#c9c9c6", "version-1-badge/millstream-badge-1colour-navy.svg", "Version 1 badge, navy ink on heather grey", 0.30, "badge"],
+    ["#1b2a3a", "version-1-badge/millstream-badge-full-colour.svg", "Version 1 badge, full colour (embroidered) on navy", 0.30, "badge"],
+    ["#efe7d6", "version-2-mark/stacked/millstream-stacked-full-colour-on-light.svg", "Version 2 stacked, full colour on cream", 0.34, "stacked"],
+    ["#2e4a35", "version-2-mark/horizontal/millstream-horizontal-1colour-white.svg", "Version 2 horizontal, white ink on forest green", 0.50, "horizontal"],
+    ["#3a3d40", "version-2-mark/stacked/millstream-stacked-full-colour-on-dark.svg", "Version 2 stacked, full colour on charcoal", 0.34, "stacked"],
+    ["#1b2a3a", "version-2-mark/millstream-mark-1colour-white.svg", "Version 2 mark alone, white ink, left chest", 0.13, "left"],
+  ];
+  const g = document.getElementById("garments");
+  for (const [fill, src, label, w, mode] of shirts) {
+    const W = 400, H = 360;
+    const lw = W * w;
+    const ratio = mode === "horizontal" ? 0.36 : mode === "stacked" ? 1.013 : 1;
+    const lh = lw * ratio;
+    const x = mode === "left" ? 232 : (W - lw) / 2;
+    const y = mode === "left" ? 112 : 118 + (mode === "horizontal" ? 30 : 0);
+    const shade = "rgba(0,0,0,.10)";
+    g.insertAdjacentHTML("beforeend", `
+      <figure class="sweat" style="margin:0">
+        <svg class="shirt" viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}">
+          <rect width="${W}" height="${H}" fill="#f1eee8"/>
+          <path d="M140 40 Q200 66 260 40 L330 66 Q360 78 368 110 L392 262 Q394 276 380 278 L344 282 Q332 283 330 270 L316 168 L314 330 Q314 342 302 342 H98 Q86 342 86 330 L84 168 L70 270 Q68 283 56 282 L20 278 Q6 276 8 262 L32 110 Q40 78 70 66 Z" fill="${fill}"/>
+          <path d="M140 40 Q200 66 260 40 Q246 74 200 76 Q154 74 140 40 Z" fill="${shade}"/>
+          <path d="M98 318 H302 V330 Q302 342 290 342 H110 Q98 342 98 330 Z" fill="${shade}"/>
+          <path d="M28 258 L66 262 L64 276 L24 272 Z M372 258 L334 262 L336 276 L376 272 Z" fill="${shade}"/>
+          <image href="${src}" x="${x}" y="${y}" width="${lw}" height="${lh}"/>
+        </svg>
+        <figcaption class="cap">${label}</figcaption>
+      </figure>`);
+  }
+</script>
+</body>
+</html>
