@@ -128,6 +128,22 @@ export async function deleteCamper(id: string) {
 
 // --- Staff -------------------------------------------------------------------
 
+// Shared by add and edit. Summer staff get an access end date, after which
+// routines stop reaching them.
+function staffFields(formData: FormData) {
+  const season = field(formData, "season") === "summer" ? "summer" : "year_round";
+  return {
+    role: field(formData, "role").trim() || null,
+    team: field(formData, "team").trim() || null,
+    email: field(formData, "email").trim() || null,
+    phone: field(formData, "phone").trim() || null,
+    notes: field(formData, "notes").trim() || null,
+    season: season as "summer" | "year_round",
+    access_ends: season === "summer" ? field(formData, "access_ends").trim() || null : null,
+    under_18: field(formData, "under_18") === "on",
+  };
+}
+
 export async function createStaff(formData: FormData) {
   const { supabase, campId } = await requireCamp();
 
@@ -139,10 +155,7 @@ export async function createStaff(formData: FormData) {
     camp_id: campId,
     first_name: firstName,
     last_name: lastName,
-    role: field(formData, "role").trim() || null,
-    email: field(formData, "email").trim() || null,
-    phone: field(formData, "phone").trim() || null,
-    notes: field(formData, "notes").trim() || null,
+    ...staffFields(formData),
   });
 
   revalidatePeople();
@@ -160,16 +173,14 @@ export async function updateStaff(id: string, formData: FormData) {
     .update({
       first_name: firstName,
       last_name: lastName,
-      role: field(formData, "role").trim() || null,
-      email: field(formData, "email").trim() || null,
-      phone: field(formData, "phone").trim() || null,
-      notes: field(formData, "notes").trim() || null,
+      ...staffFields(formData),
     })
     .eq("id", id)
     .eq("camp_id", campId);
 
   revalidatePeople();
-  redirect(withSaved("/people/staff", "Staff member saved"));
+  revalidatePath("/tasks", "layout");
+  redirect(withSaved(`/people/staff/${id}`, "Staff member saved"));
 }
 
 export async function deleteStaff(id: string) {

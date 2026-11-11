@@ -1,9 +1,20 @@
+// The camp is in Ontario, so "today" follows Eastern time wherever the server
+// runs (Vercel is on UTC, which would roll over to tomorrow at 7-8 pm).
+export const CAMP_TIME_ZONE = "America/Toronto";
+
+/** YYYY-MM-DD in camp time, `offsetDays` from today. */
+export function campISODate(offsetDays = 0): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: CAMP_TIME_ZONE }).format(
+    new Date(Date.now() + offsetDays * 86_400_000)
+  );
+}
+
 export function todayISODate() {
-  return new Date().toISOString().slice(0, 10);
+  return campISODate(0);
 }
 
 export function tomorrowISODate() {
-  return new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  return campISODate(1);
 }
 
 export function formatDueDate(dueDate: string | null): {

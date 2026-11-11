@@ -1,14 +1,114 @@
+import { campISODate } from "@/lib/dates";
 // Sample Mill Stream data used when the app runs without a database, so the
 // whole product can be explored before any keys exist.
 
 function isoDate(offsetDays: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
+  return campISODate(offsetDays);
 }
 
 function isoTime(offsetMinutes: number): string {
   return new Date(Date.now() + offsetMinutes * 60_000).toISOString();
+}
+
+// The most recent summer camp season (July 5 to August 29).
+function summerYear(): number {
+  const now = new Date();
+  return now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+}
+function summerStart(): string {
+  return `${summerYear()}-07-05`;
+}
+function summerEnd(): string {
+  return `${summerYear()}-08-29`;
+}
+
+function staffRow(
+  id: string,
+  firstName: string,
+  lastName: string,
+  role: string,
+  team: string,
+  extra: DemoRow = {}
+): DemoRow {
+  return {
+    id,
+    camp_id: DEMO_CAMP_ID,
+    first_name: firstName,
+    last_name: lastName,
+    role,
+    team,
+    email: null,
+    phone: null,
+    notes: null,
+    season: "year_round",
+    under_18: false,
+    access_ends: null,
+    profile_id: null,
+    created_at: isoTime(-60 * 24 * 40),
+    updated_at: isoTime(-60 * 24 * 40),
+    ...extra,
+  };
+}
+
+function routineRow(id: string, title: string, extra: DemoRow): DemoRow {
+  return {
+    id,
+    camp_id: DEMO_CAMP_ID,
+    created_by: DEMO_USER_ID,
+    title,
+    description: null,
+    target_staff_id: null,
+    target_team: null,
+    frequency: "daily",
+    weekdays: null,
+    due_time: null,
+    starts_on: isoDate(-30),
+    ends_on: null,
+    priority: "medium",
+    active: true,
+    created_at: isoTime(-60 * 24 * 30),
+    updated_at: isoTime(-60 * 24 * 30),
+    ...extra,
+  };
+}
+
+// Today's routine copies, some already ticked off, plus one from yesterday
+// that slipped, so the Team view has something to show.
+const WALKTHROUGH_STEPS = [
+  "Lodge doors and windows locked overnight",
+  "Heat on in occupied buildings",
+  "Washrooms stocked",
+  "Paths and stairs clear",
+  "Anything broken logged as a task",
+];
+
+function isWeekday(dayOffset: number): boolean {
+  const day = new Date(isoDate(dayOffset) + "T00:00:00").getDay();
+  return day >= 1 && day <= 5;
+}
+
+function routineTask(routineId: string, title: string, staffId: string, dayOffset: number, dueTime: string, done: boolean): DemoRow {
+  return {
+    id: `demo-rtask-${routineId}-${staffId}-${dayOffset}`,
+    camp_id: DEMO_CAMP_ID,
+    created_by: DEMO_USER_ID,
+    title,
+    description: null,
+    due_date: isoDate(dayOffset),
+    due_time: dueTime,
+    priority: "medium",
+    status: done ? "done" : "open",
+    source_email_id: null,
+    assigned_to: staffId,
+    routine_id: routineId,
+    completed_at: done ? isoTime(dayOffset * 24 * 60 - 60) : null,
+    checklist:
+      routineId === "demo-routine-1"
+        ? WALKTHROUGH_STEPS.map((label, i) => ({ label, done: done || i < 2 }))
+        : null,
+    created_at: isoTime(dayOffset * 24 * 60 - 600),
+    updated_at: isoTime(dayOffset * 24 * 60 - 60),
+  };
 }
 
 export const DEMO_USER_ID = "demo-user-0001";
@@ -136,6 +236,32 @@ export function buildSeed(): Record<string, DemoRow[]> {
         source_email_id: null,
         created_at: isoTime(-60 * 24 * 5),
         updated_at: isoTime(-60 * 24 * 3),
+      },
+      // Routine copies that came due (see routineTask above).
+      routineTask("demo-routine-2", "Log fridge and freezer temperatures", "demo-staff-7", 0, "07:30", true),
+      routineTask("demo-routine-1", "Morning walkthrough: lodge, cabins and grounds", "demo-staff-6", 0, "08:30", true),
+      routineTask("demo-routine-2", "Log fridge and freezer temperatures", "demo-staff-7", -1, "07:30", true),
+      routineTask("demo-routine-1", "Morning walkthrough: lodge, cabins and grounds", "demo-staff-6", -1, "08:30", false),
+      ...(isWeekday(0)
+        ? [routineTask("demo-routine-3", "Reply to new retreat inquiries", "demo-staff-1", 0, "11:00", true)]
+        : []),
+      // Sent by the director to one person.
+      {
+        id: "demo-task-sent-1",
+        camp_id: DEMO_CAMP_ID,
+        created_by: DEMO_USER_ID,
+        title: "Send Lakeview School their final invoice",
+        description: "62 people, 2 nights. Use the school rate.",
+        due_date: isoDate(0),
+        due_time: "15:00",
+        priority: "high",
+        status: "open",
+        source_email_id: null,
+        assigned_to: "demo-staff-5",
+        routine_id: null,
+        completed_at: null,
+        created_at: isoTime(-120),
+        updated_at: isoTime(-120),
       },
     ],
 
@@ -383,55 +509,90 @@ export function buildSeed(): Record<string, DemoRow[]> {
     ],
 
     staff: [
-      {
-        id: "demo-staff-1",
-        camp_id: DEMO_CAMP_ID,
-        first_name: "Dana",
-        last_name: "Brooks",
-        role: "Program Director",
+      // Year-round team: they're the only ones in the app from September to June.
+      staffRow("demo-staff-0", "Alex", "Rivera", "Director", "Office", {
+        email: DEMO_EMAIL,
+        profile_id: DEMO_USER_ID,
+      }),
+      staffRow("demo-staff-1", "Dana", "Brooks", "Program Director", "Office", {
         email: "dana@millstream.camp",
         phone: "705-555-0110",
-        notes: null,
-        created_at: isoTime(-60 * 24 * 40),
-        updated_at: isoTime(-60 * 24 * 40),
-      },
-      {
-        id: "demo-staff-2",
-        camp_id: DEMO_CAMP_ID,
-        first_name: "Priya",
-        last_name: "Raman",
-        role: "Camp Nurse",
+      }),
+      staffRow("demo-staff-5", "Jordan", "Reyes", "Retreat Coordinator", "Office", {
+        email: "jordan@millstream.camp",
+        phone: "705-555-0131",
+      }),
+      staffRow("demo-staff-6", "Sam", "Okafor", "Facilities Manager", "Maintenance", {
+        phone: "705-555-0142",
+      }),
+      staffRow("demo-staff-7", "Rosa", "Bell", "Kitchen Lead", "Kitchen", {
+        email: "kitchen@millstream.camp",
+        notes: "Needs final headcounts 48 hours before each retreat.",
+      }),
+      // Summer staff: their access ended with the season, so routines skip them.
+      staffRow("demo-staff-2", "Priya", "Raman", "Camp Nurse", "Health", {
         email: "nurse@millstream.camp",
         phone: "705-555-0111",
         notes: "On site Sunday evening through Friday.",
-        created_at: isoTime(-60 * 24 * 38),
-        updated_at: isoTime(-60 * 24 * 38),
-      },
-      {
-        id: "demo-staff-3",
-        camp_id: DEMO_CAMP_ID,
-        first_name: "Tomas",
-        last_name: "Vega",
-        role: "Waterfront Lead",
-        email: null,
+        season: "summer",
+        access_ends: summerEnd(),
+      }),
+      staffRow("demo-staff-3", "Tomas", "Vega", "Waterfront Lead", "Waterfront", {
         phone: "705-555-0124",
         notes: "Lifeguard certification renews in March.",
-        created_at: isoTime(-60 * 24 * 35),
-        updated_at: isoTime(-60 * 24 * 35),
-      },
-      {
-        id: "demo-staff-4",
-        camp_id: DEMO_CAMP_ID,
-        first_name: "Hannah",
-        last_name: "Lindgren",
-        role: "Cabin 4 Counsellor",
-        email: null,
-        phone: null,
-        notes: null,
-        created_at: isoTime(-60 * 24 * 30),
-        updated_at: isoTime(-60 * 24 * 30),
-      },
+        season: "summer",
+        access_ends: summerEnd(),
+      }),
+      staffRow("demo-staff-4", "Hannah", "Lindgren", "Cabin 4 Counsellor", "Cabin leaders", {
+        season: "summer",
+        access_ends: summerEnd(),
+      }),
+      staffRow("demo-staff-8", "Eli", "Nguyen", "Counsellor in training", "Cabin leaders", {
+        season: "summer",
+        under_18: true,
+        access_ends: summerEnd(),
+      }),
     ],
+
+    routines: [
+      routineRow("demo-routine-1", "Morning walkthrough: lodge, cabins and grounds", {
+        target_type: "team",
+        target_team: "Maintenance",
+        due_time: "08:30",
+        description: "Doors, heat, lights and anything a group would notice first.",
+        checklist: WALKTHROUGH_STEPS,
+      }),
+      routineRow("demo-routine-2", "Log fridge and freezer temperatures", {
+        target_type: "team",
+        target_team: "Kitchen",
+        due_time: "07:30",
+        priority: "high",
+      }),
+      routineRow("demo-routine-3", "Reply to new retreat inquiries", {
+        target_type: "team",
+        target_team: "Office",
+        frequency: "weekly",
+        weekdays: [1, 2, 3, 4, 5],
+        due_time: "11:00",
+      }),
+      routineRow("demo-routine-4", "Test fire alarms and check extinguishers", {
+        target_type: "person",
+        target_staff_id: "demo-staff-6",
+        frequency: "weekly",
+        weekdays: [1],
+        due_time: "10:00",
+        priority: "high",
+      }),
+      // A summer routine: set up once, it only runs between these dates.
+      routineRow("demo-routine-5", "Morning cabin inspection", {
+        target_type: "team",
+        target_team: "Cabin leaders",
+        due_time: "08:00",
+        starts_on: summerStart(),
+        ends_on: summerEnd(),
+      }),
+    ],
+
 
     email_drafts: [
       {

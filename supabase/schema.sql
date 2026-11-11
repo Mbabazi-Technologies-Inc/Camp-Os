@@ -396,3 +396,84 @@ drop trigger if exists gmail_accounts_set_updated_at on public.gmail_accounts;
 create trigger gmail_accounts_set_updated_at
   before update on public.gmail_accounts
   for each row execute procedure public.set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- Team tasks: who's on staff when, recurring routines, and who each task is for.
+--
+-- staff.team groups people for sending tasks ("Cabin leaders", "Kitchen").
+-- staff.season is 'summer' for seasonal staff, whose access_ends date stops
+-- routines reaching them once the summer is over. staff.profile_id links a
+-- staff record to the login that sees "My tasks".
+-- ---------------------------------------------------------------------------
+alter table public.staff add column if not exists team text;
+alter table public.staff add column if not exists season text not null default 'year_round';
+alter table public.staff add column if not exists under_18 boolean not null default false;
+alter table public.staff add column if not exists access_ends date;
+alter table public.staff add column if not exists profile_id uuid references auth.users (id) on delete set null;
+
+do $$ begin
+  alter table public.staff add constraint staff_season_check check (season in ('year_round', 'summer'));
+exception when duplicate_object then null; end $$;
+
+create index if not exists staff_profile_id_idx on public.staff (profile_id);
+
+-- routines: tasks the director sends once that repeat on a schedule. Each
+-- day it runs, every person it targets gets their own task.
+create table if not exists public.routines (
+  id uuid primary key default gen_random_uuid(),
+  camp_id uuid not null references public.camps (id) on delete cascade,
+  created_by uuid references auth.users (id) on delete set null,
+  title text not null,
+  description text,
+  target_type text not null check (target_type in ('person', 'team')),
+  target_staff_id uuid references public.staff (id) on delete cascade,
+  target_team text,
+  frequency text not null default 'daily' check (frequency in ('daily', 'weekly')),
+  -- 0 = Sunday ... 6 = Saturday; used when frequency is 'weekly'.
+  weekdays smallint[],
+  due_time text,
+  starts_on date not null default current_date,
+  ends_on date,
+  priority text not null default 'medium' check (priority in ('low', 'medium', 'high')),
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.routines enable row level security;
+
+drop policy if exists "Members read their camp routines" on public.routines;
+create policy "Members read their camp routines" on public.routines
+  for select using (camp_id = public.user_camp_id());
+
+drop policy if exists "Directors manage their camp routines" on public.routines;
+create policy "Directors manage their camp routines" on public.routines
+  for all using (
+    camp_id = public.user_camp_id()
+    and exists (select 1 from public.profiles where id = auth.uid() and role = 'director')
+  )
+  with check (camp_id = public.user_camp_id());
+
+create index if not exists routines_camp_id_idx on public.routines (camp_id);
+
+drop trigger if exists routines_set_updated_at on public.routines;
+create trigger routines_set_updated_at
+  before update on public.routines
+  for each row execute procedure public.set_updated_at();
+
+-- Tasks can now be for a specific person, and can come from a routine.
+alter table public.tasks add column if not exists assigned_to uuid references public.staff (id) on delete set null;
+alter table public.tasks add column if not exists routine_id uuid references public.routines (id) on delete set null;
+alter table public.tasks add column if not exists due_time text;
+alter table public.tasks add column if not exists completed_at timestamptz;
+
+create index if not exists tasks_assigned_to_idx on public.tasks (assigned_to, due_date);
+-- One copy of a routine per person per day, however many times it's generated.
+create unique index if not exists tasks_routine_person_day_idx
+  on public.tasks (routine_id, assigned_to, due_date)
+  where routine_id is not null;
+
+-- Checklists: a routine (or a one-off send) can list the steps that make up
+-- "done". Each task gets its own copy to tick through.
+alter table public.routines add column if not exists checklist text[];
+alter table public.tasks add column if not exists checklist jsonb;

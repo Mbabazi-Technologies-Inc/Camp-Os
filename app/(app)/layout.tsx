@@ -7,6 +7,7 @@ import { DemoBanner } from "@/components/DemoBanner";
 import { todayISODate } from "@/lib/dates";
 import { Suspense } from "react";
 import { SavedToast } from "@/components/ui/SavedToast";
+import { ensureRoutineTasks, getMyStaff, myTasksFilter } from "@/lib/routines";
 
 export default async function AppLayout({
   children,
@@ -24,7 +25,7 @@ export default async function AppLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("camp_id")
+    .select("camp_id, role")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -38,6 +39,13 @@ export default async function AppLayout({
     campName = camp?.name ?? null;
   }
 
+  // Today's routine tasks are created on first visit each day, before anything counts them.
+  const today = todayISODate();
+  if (profile?.camp_id) await ensureRoutineTasks(today);
+  const me = profile?.camp_id ? await getMyStaff() : null;
+  const isDirector = profile?.role === "director";
+  const mineFilter = myTasksFilter(isDirector, me);
+
   // Counts shown as badges in the navigation, so staff can see what's
   // waiting without opening each section.
   const [{ count: draftCount }, { count: dueTaskCount }] = await Promise.all([
@@ -46,7 +54,8 @@ export default async function AppLayout({
       .from("tasks")
       .select("id", { count: "exact", head: true })
       .eq("status", "open")
-      .lte("due_date", todayISODate()),
+      .or(mineFilter)
+      .lte("due_date", today),
   ]);
   const badges: Record<string, number> = {
     "/email-assistant": draftCount ?? 0,

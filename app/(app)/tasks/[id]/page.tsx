@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, Check, Clock, ListTodo, Mail, RotateCcw } from "lucide-react";
+import { CalendarDays, Check, Clock, ListTodo, Mail, Repeat, RotateCcw, User } from "lucide-react";
+import { describeSchedule } from "@/lib/routines";
 import { createClient } from "@/lib/supabase/server";
-import { updateTask, deleteTask, toggleTaskStatus } from "../actions";
+import { requireCamp } from "@/lib/auth";
+import { updateTask, deleteTask, toggleTaskStatus, toggleChecklistItem } from "../actions";
 import { Input, Textarea, Select, Label } from "@/components/ui/Field";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { SubmitButton } from "@/components/ui/SubmitButton";
@@ -24,6 +26,13 @@ export default async function TaskDetailPage({
 
   if (!task) notFound();
 
+  const { role } = await requireCamp();
+  const { data: staff } = await supabase.from("staff").select("*").order("first_name", { ascending: true });
+  const assignee = (staff ?? []).find((m) => m.id === task.assigned_to);
+  const { data: routine } = task.routine_id
+    ? await supabase.from("routines").select("*").eq("id", task.routine_id).maybeSingle()
+    : { data: null };
+
   const { data: sourceEmail } = task.source_email_id
     ? await supabase
         .from("email_drafts")
@@ -37,6 +46,8 @@ export default async function TaskDetailPage({
   const isDone = task.status === "done";
   const toggleWithId = toggleTaskStatus.bind(null, task.id, isDone ? "open" : "done");
   const due = formatDueDate(task.due_date);
+  const steps = task.checklist ?? [];
+  const stepsDone = steps.filter((step) => step.done).length;
 
   return (
     <div>
@@ -48,13 +59,32 @@ export default async function TaskDetailPage({
         meta={
           <>
             <MetaItem icon={<CalendarDays size={14} />}>
-              <span className={due.overdue && !isDone ? "font-medium text-danger" : ""}>{due.label}</span>
+              <span className={due.overdue && !isDone ? "font-medium text-danger" : ""}>
+                {isDone && task.completed_at
+                  ? `Done ${formatRelativeTime(task.completed_at)}`
+                  : due.label}
+              </span>
             </MetaItem>
             <Badge className={TASK_PRIORITY_STYLES[task.priority]}>{TASK_PRIORITY_LABELS[task.priority]} priority</Badge>
+            {assignee && (
+              <MetaItem icon={<User size={14} />}>
+                {assignee.first_name} {assignee.last_name}
+              </MetaItem>
+            )}
+            {routine && (
+              <MetaItem icon={<Repeat size={14} />}>
+                {describeSchedule(routine)}
+              </MetaItem>
+            )}
             {isDone && <Badge className="bg-forest-soft text-forest">Done</Badge>}
           </>
         }
         actions={
+          steps.length > 0 && !isDone ? (
+            <span className="rounded-xl bg-surface-muted px-3 py-2 text-sm font-medium text-muted">
+              {stepsDone} of {steps.length} steps done
+            </span>
+          ) : (
           <form action={toggleWithId}>
             <SubmitButton pendingText="Saving..." variant={isDone ? "secondary" : "primary"}>
               {isDone ? (
@@ -68,8 +98,40 @@ export default async function TaskDetailPage({
               )}
             </SubmitButton>
           </form>
+          )
         }
       />
+
+      {steps.length > 0 && (
+        <SectionCard
+          title="Checklist"
+          description={isDone ? "Every step was ticked off." : "Tick each step. The task is done when they all are."}
+        >
+          <ul className="-my-1 divide-y divide-border">
+            {steps.map((step, index) => (
+              <li key={index}>
+                <form action={toggleChecklistItem.bind(null, task.id, index)}>
+                  <button
+                    type="submit"
+                    className="flex w-full items-center gap-3 py-2.5 text-left"
+                    aria-pressed={step.done}
+                  >
+                    <span
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                        step.done ? "border-forest bg-forest text-white" : "border-border text-transparent"
+                      }`}
+                    >
+                      <Check size={14} strokeWidth={3} />
+                    </span>
+                    <span className={step.done ? "text-muted line-through" : "text-foreground"}>{step.label}</span>
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      )}
+      {steps.length > 0 && <div className="h-6" />}
 
       <DetailGrid
         aside={
@@ -121,9 +183,29 @@ export default async function TaskDetailPage({
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
+              {role === "director" ? (
+              <div className="col-span-2">
+                <Label htmlFor="assigned_to">For</Label>
+                <Select id="assigned_to" name="assigned_to" defaultValue={task.assigned_to ?? ""}>
+                  <option value="">Office (shared)</option>
+                  {(staff ?? []).map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.first_name} {m.last_name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              ) : (
+                // Staff can't hand their tasks to someone else; keep who it's for.
+                <input type="hidden" name="assigned_to" value={task.assigned_to ?? ""} />
+              )}
               <div>
                 <Label htmlFor="due_date">Due date</Label>
                 <Input id="due_date" name="due_date" type="date" defaultValue={task.due_date ?? ""} />
+              </div>
+              <div>
+                <Label htmlFor="due_time">Due by</Label>
+                <Input id="due_time" name="due_time" type="time" defaultValue={task.due_time ?? ""} />
               </div>
               <div>
                 <Label htmlFor="priority">Priority</Label>

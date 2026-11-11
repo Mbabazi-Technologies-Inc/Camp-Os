@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { isSupabaseConfigured } from "@/lib/env";
-import { createDemoClient, DEMO_COOKIE } from "@/lib/demo/client";
+import { createDemoClient, DEMO_COOKIE, DEMO_VIEW_AS_COOKIE } from "@/lib/demo/client";
 import type { Database } from "./database.types";
 
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
@@ -41,7 +41,8 @@ export async function createClient(): Promise<AppSupabaseClient> {
 
   if (!isSupabaseConfigured()) {
     const signedIn = cookieStore.get(DEMO_COOKIE)?.value === "1";
-    return createDemoClient(signedIn) as unknown as AppSupabaseClient;
+    const viewAs = cookieStore.get(DEMO_VIEW_AS_COOKIE)?.value ?? null;
+    return createDemoClient(signedIn, viewAs) as unknown as AppSupabaseClient;
   }
 
   return createRealClient(cookieStore);

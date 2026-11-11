@@ -6,6 +6,11 @@ export type TaskStatus = "open" | "done";
 
 export type MemberRole = "director" | "staff";
 
+export type StaffSeason = "year_round" | "summer";
+export type RoutineTargetType = "person" | "team";
+export type RoutineFrequency = "daily" | "weekly";
+export type ChecklistItem = { label: string; done: boolean };
+
 export type RetreatGroupStatus = "inquiry" | "tentative" | "confirmed" | "cancelled";
 
 export type KnowledgeCategory =
@@ -86,6 +91,11 @@ export interface Database {
           priority: TaskPriority;
           status: TaskStatus;
           source_email_id: string | null;
+          assigned_to: string | null;
+          routine_id: string | null;
+          due_time: string | null;
+          completed_at: string | null;
+          checklist: ChecklistItem[] | null;
           created_at: string;
           updated_at: string;
         };
@@ -173,6 +183,11 @@ export interface Database {
           email: string | null;
           phone: string | null;
           notes: string | null;
+          team: string | null;
+          season: StaffSeason;
+          under_18: boolean;
+          access_ends: string | null;
+          profile_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -182,6 +197,35 @@ export interface Database {
           last_name: string;
         };
         Update: Partial<Database["public"]["Tables"]["staff"]["Row"]>;
+        Relationships: [];
+      };
+      routines: {
+        Row: {
+          id: string;
+          camp_id: string;
+          created_by: string | null;
+          title: string;
+          description: string | null;
+          target_type: RoutineTargetType;
+          target_staff_id: string | null;
+          target_team: string | null;
+          frequency: RoutineFrequency;
+          weekdays: number[] | null;
+          due_time: string | null;
+          starts_on: string;
+          ends_on: string | null;
+          priority: TaskPriority;
+          active: boolean;
+          checklist: string[] | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["routines"]["Row"]> & {
+          camp_id: string;
+          title: string;
+          target_type: RoutineTargetType;
+        };
+        Update: Partial<Database["public"]["Tables"]["routines"]["Row"]>;
         Relationships: [];
       };
       retreat_groups: {

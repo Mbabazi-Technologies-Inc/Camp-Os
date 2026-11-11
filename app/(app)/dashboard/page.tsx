@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { requireCamp } from "@/lib/auth";
+import { campTimeNow, ensureRoutineTasks, getMyStaff, myTasksFilter } from "@/lib/routines";
 import { createTask } from "@/app/(app)/tasks/actions";
 import { addStarterPack } from "@/app/(app)/knowledge-base/actions";
-import { todayISODate, tomorrowISODate, formatRelativeTime, formatDueDate } from "@/lib/dates";
+import { todayISODate, tomorrowISODate, formatRelativeTime, formatDueDate, campISODate } from "@/lib/dates";
 import { seasonFor, SEASON_LABELS } from "@/lib/season";
 import { GroupRow } from "@/components/groups/GroupRow";
 import { Card } from "@/components/ui/Card";
@@ -25,12 +26,13 @@ import {
   CheckCircle2,
   Circle,
   Trees,
+  UsersRound,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 function isoDaysFromToday(days: number) {
-  return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+  return campISODate(days);
 }
 
 // "today", "tomorrow", "Friday" or "Nov 6" for an arrival date.
@@ -51,10 +53,14 @@ function greetingForHour(hour: number) {
 }
 
 export default async function DashboardPage() {
-  const { supabase, campId, fullName } = await requireCamp();
+  const { supabase, campId, fullName, role } = await requireCamp();
 
   const today = todayISODate();
   const tomorrow = tomorrowISODate();
+  await ensureRoutineTasks(today);
+  const me = await getMyStaff();
+  const isDirector = role === "director";
+  const mineFilter = myTasksFilter(isDirector, me);
 
   const [
     { data: camp },
@@ -68,6 +74,8 @@ export default async function DashboardPage() {
     { count: emailEverCount },
     { data: gmailAccount },
     { data: retreatGroups },
+    { data: teamToday },
+    { data: teamOverdue },
   ] = await Promise.all([
     supabase.from("camps").select("name").eq("id", campId).maybeSingle(),
     supabase
@@ -75,20 +83,22 @@ export default async function DashboardPage() {
       .select("*")
       .eq("camp_id", campId)
       .eq("status", "open")
-      .or(`due_date.lte.${today},due_date.is.null`)
+      .or(mineFilter)
       .order("due_date", { ascending: true, nullsFirst: false })
       .order("priority", { ascending: false })
-      .limit(8),
-    supabase
-      .from("tasks")
-      .select("id", { count: "exact", head: true })
-      .eq("camp_id", campId)
-      .eq("status", "open"),
+      .limit(40),
     supabase
       .from("tasks")
       .select("id", { count: "exact", head: true })
       .eq("camp_id", campId)
       .eq("status", "open")
+      .or(mineFilter),
+    supabase
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("camp_id", campId)
+      .eq("status", "open")
+      .or(mineFilter)
       .lt("due_date", today),
     supabase
       .from("email_drafts")
@@ -123,7 +133,23 @@ export default async function DashboardPage() {
       .eq("camp_id", campId)
       .neq("status", "cancelled")
       .order("arrival_date", { ascending: true, nullsFirst: false }),
+    // The director's view of everyone else's day (see Team tasks).
+    isDirector
+      ? supabase.from("tasks").select("status, due_time, assigned_to").eq("due_date", today)
+      : Promise.resolve({ data: [] as { status: string; due_time: string | null; assigned_to: string | null }[] }),
+    isDirector
+      ? supabase.from("tasks").select("id, assigned_to").eq("status", "open").lt("due_date", today)
+      : Promise.resolve({ data: [] as { id: string; assigned_to: string | null }[] }),
   ]);
+
+  // Due today, overdue, or undated: what needs you now.
+  const dueNow = (priorityTasks ?? []).filter((t) => !t.due_date || t.due_date <= today).slice(0, 8);
+  const teamTasks = (teamToday ?? []).filter((t) => t.assigned_to);
+  const teamDone = teamTasks.filter((t) => t.status === "done").length;
+  const nowTime = campTimeNow();
+  const teamLate =
+    teamTasks.filter((t) => t.status === "open" && t.due_time && t.due_time < nowTime).length +
+    (teamOverdue ?? []).filter((t) => t.assigned_to).length;
 
   const season = seasonFor(new Date());
   const upcomingGroups = (retreatGroups ?? [])
@@ -140,7 +166,7 @@ export default async function DashboardPage() {
   const firstName = fullName?.split(" ")?.[0];
   const now = new Date();
   const caughtUp =
-    (priorityTasks?.length ?? 0) === 0 && (pendingEmails?.length ?? 0) === 0;
+    dueNow.length === 0 && (pendingEmails?.length ?? 0) === 0;
 
   // Onboarding: shown until the camp has a real name, some knowledge, and
   // has processed at least one email.
@@ -153,7 +179,7 @@ export default async function DashboardPage() {
   const topUrgentEmail = pendingEmails?.find(
     (d) => d.urgency === "urgent" || d.urgency === "high"
   );
-  const topOverdueTask = priorityTasks?.find(
+  const topOverdueTask = dueNow.find(
     (t) => t.due_date && t.due_date < today
   );
   const briefingParts: string[] = [];
@@ -324,7 +350,36 @@ export default async function DashboardPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 mb-5">
+      <div className={`grid gap-3 mb-5 ${isDirector ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2"}`}>
+        {isDirector && (
+          <Link href="/tasks/team" className="group col-span-2 sm:col-span-1 sm:order-last">
+            <Card className="p-4 transition-shadow group-hover:shadow-card-hover">
+              <div className="flex items-center justify-between">
+                <p className="font-display text-4xl font-semibold text-foreground">
+                  {teamDone}
+                  <span className="text-xl text-muted">/{teamTasks.length}</span>
+                </p>
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                  <UsersRound size={18} />
+                </span>
+              </div>
+              <p className="text-sm text-muted mt-1 flex items-center gap-1">
+                Team done today
+                {teamLate > 0 && <span className="font-semibold text-danger">· {teamLate} late</span>}
+                <ArrowRight
+                  size={13}
+                  className="opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0"
+                />
+              </p>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-muted">
+                <div
+                  className="h-full rounded-full bg-forest"
+                  style={{ width: `${teamTasks.length ? Math.round((teamDone / teamTasks.length) * 100) : 0}%` }}
+                />
+              </div>
+            </Card>
+          </Link>
+        )}
         <Link href="/tasks" className="group">
           <Card className="p-4 transition-shadow group-hover:shadow-card-hover">
             <div className="flex items-center justify-between">
@@ -405,9 +460,9 @@ export default async function DashboardPage() {
           </Link>
         </div>
         <Card className="px-3">
-          {priorityTasks && priorityTasks.length > 0 ? (
+          {dueNow.length > 0 ? (
             <div className="divide-y divide-border">
-              {priorityTasks.map((task) => (
+              {dueNow.map((task) => (
                 <TaskItem key={task.id} task={task} />
               ))}
             </div>

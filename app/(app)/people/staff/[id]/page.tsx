@@ -2,7 +2,10 @@ import { notFound } from "next/navigation";
 import { BadgeCheck, Mail, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { updateStaff, deleteStaff } from "../../actions";
-import { Input, Textarea, Label } from "@/components/ui/Field";
+import { StaffFields } from "@/components/people/StaffFields";
+import { teamsOf } from "@/lib/routines";
+import { todayISODate } from "@/lib/dates";
+import { TaskItem } from "@/components/tasks/TaskItem";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { BackLink, ContactAction, DangerZone, DetailGrid, MetaItem, ProfileHeader, SectionCard } from "@/components/ui/Detail";
@@ -20,6 +23,16 @@ export default async function StaffDetailPage({
   const { data: member } = await supabase.from("staff").select("*").eq("id", id).maybeSingle();
 
   if (!member) notFound();
+  const { data: everyone } = await supabase.from("staff").select("*");
+  const teams = teamsOf(everyone ?? []);
+  const today = todayISODate();
+  const { data: theirTasks } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("assigned_to", member.id)
+    .or(`status.eq.open,due_date.eq.${today}`)
+    .order("due_date", { ascending: true, nullsFirst: false })
+    .limit(12);
 
   const updateWithId = updateStaff.bind(null, member.id);
   const deleteWithId = deleteStaff.bind(null, member.id);
@@ -41,35 +54,24 @@ export default async function StaffDetailPage({
         }
       />
 
-      <DetailGrid>
+      <DetailGrid
+        aside={
+          <SectionCard title="Tasks" description="Today's tasks and anything still open.">
+            {theirTasks && theirTasks.length > 0 ? (
+              <div className="-my-2 divide-y divide-border">
+                {theirTasks.map((task) => (
+                  <TaskItem key={task.id} task={task} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted">Nothing assigned right now.</p>
+            )}
+          </SectionCard>
+        }
+      >
         <SectionCard title="Details">
           <form action={updateWithId} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="first_name">First name</Label>
-                <Input id="first_name" name="first_name" defaultValue={member.first_name} required />
-              </div>
-              <div>
-                <Label htmlFor="last_name">Last name</Label>
-                <Input id="last_name" name="last_name" defaultValue={member.last_name} required />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="role">Role</Label>
-                <Input id="role" name="role" defaultValue={member.role ?? ""} placeholder="e.g. Cabin counsellor" />
-              </div>
-              <div className="col-span-2 sm:col-span-1">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" defaultValue={member.email ?? ""} />
-              </div>
-              <div className="col-span-2 sm:col-span-1">
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" name="phone" type="tel" defaultValue={member.phone ?? ""} />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea id="notes" name="notes" rows={3} defaultValue={member.notes ?? ""} />
-            </div>
+            <StaffFields member={member} teams={teams} />
             <SubmitButton pendingText="Saving...">Save changes</SubmitButton>
           </form>
         </SectionCard>
