@@ -8,6 +8,9 @@ import { todayISODate } from "@/lib/dates";
 import { Suspense } from "react";
 import { SavedToast } from "@/components/ui/SavedToast";
 import { ensureRoutineTasks, getMyStaff, myTasksFilter } from "@/lib/routines";
+import { getChannelList, type SidebarChannel } from "@/lib/chat";
+import { seasonFor } from "@/lib/season";
+import { MainFrame } from "@/components/nav/MainFrame";
 
 export default async function AppLayout({
   children,
@@ -25,7 +28,7 @@ export default async function AppLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("camp_id, role")
+    .select("camp_id, role, full_name")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -57,20 +60,30 @@ export default async function AppLayout({
       .or(mineFilter)
       .lte("due_date", today),
   ]);
+  const channels: SidebarChannel[] = profile?.camp_id ? await getChannelList() : [];
   const badges: Record<string, number> = {
     "/email-assistant": draftCount ?? 0,
     "/tasks": dueTaskCount ?? 0,
+    "/chat": channels.reduce((sum, c) => sum + c.unread, 0),
   };
+  const userName = profile?.full_name ?? me?.first_name ?? user.email ?? "You";
+  const roleLabel = isDirector ? "Director" : (me?.role ?? "Staff");
 
   return (
     <div className="paper flex min-h-screen">
-      <Sidebar campName={campName} email={user.email ?? null} badges={badges} />
+      <Sidebar
+        campName={campName}
+        userName={me ? `${me.first_name} ${me.last_name}` : userName}
+        roleLabel={roleLabel}
+        season={seasonFor()}
+        channels={channels}
+        badges={badges}
+        isDirector={isDirector}
+      />
       <div className="flex-1 flex flex-col min-w-0">
         <DemoBanner />
         <TopBar campName={campName} />
-        <main className="flex-1 px-4 py-5 md:px-8 md:py-8 pb-28 md:pb-8 max-w-5xl w-full mx-auto">
-          {children}
-        </main>
+        <MainFrame>{children}</MainFrame>
       </div>
       <BottomNav badges={badges} />
       <Suspense fallback={null}>

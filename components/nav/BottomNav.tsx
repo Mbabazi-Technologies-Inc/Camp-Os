@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAV_ITEMS } from "./nav-items";
+import { MOBILE_NAV_ITEMS } from "./nav-items";
+
+// Pages reached from More, so More lights up on them.
+const UNDER_MORE = ["/more", "/groups", "/people", "/knowledge-base", "/settings"];
 
 // Floating dock: detached pill bar with blur, hovering above the safe area.
 export function BottomNav({ badges = {} }: { badges?: Record<string, number> }) {
@@ -13,9 +16,10 @@ export function BottomNav({ badges = {} }: { badges?: Record<string, number> }) 
       className="md:hidden fixed bottom-0 inset-x-0 z-20 px-3"
       style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.625rem)" }}
     >
-      <div className="mx-auto max-w-md grid grid-cols-6 rounded-3xl bg-surface/90 backdrop-blur-xl border border-border shadow-dock">
-        {NAV_ITEMS.map((item) => {
-          const active = pathname.startsWith(item.href);
+      <div className="mx-auto max-w-md grid grid-cols-5 rounded-3xl bg-surface/90 backdrop-blur-xl border border-border shadow-dock">
+        {MOBILE_NAV_ITEMS.map((item) => {
+          const active =
+            item.href === "/more" ? UNDER_MORE.some((p) => pathname.startsWith(p)) : pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
             <Link

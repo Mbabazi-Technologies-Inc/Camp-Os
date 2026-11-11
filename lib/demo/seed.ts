@@ -82,6 +82,48 @@ const WALKTHROUGH_STEPS = [
   "Anything broken logged as a task",
 ];
 
+function channelRow(id: string, name: string, kind: string, description: string, groupId: string | null = null): DemoRow {
+  return {
+    id,
+    camp_id: DEMO_CAMP_ID,
+    name,
+    kind,
+    description,
+    retreat_group_id: groupId,
+    archived: false,
+    created_by: DEMO_USER_ID,
+    created_at: isoTime(-60 * 24 * 60),
+  };
+}
+
+// The demo login a staff member gets in "view as" (see ensureDemoStaffLogin).
+function staffUser(staffId: string): string {
+  return `demo-user-${staffId}`;
+}
+
+let messageCount = 0;
+function msg(
+  channelId: string,
+  authorId: string | null,
+  authorName: string,
+  body: string,
+  offsetMinutes: number,
+  kind: "user" | "system" = "user"
+): DemoRow {
+  messageCount += 1;
+  return {
+    id: `demo-msg-${messageCount}`,
+    camp_id: DEMO_CAMP_ID,
+    channel_id: channelId,
+    author_id: authorId,
+    author_name: authorName,
+    kind,
+    body,
+    task_id: null,
+    created_at: isoTime(offsetMinutes),
+  };
+}
+
 function isWeekday(dayOffset: number): boolean {
   const day = new Date(isoDate(dayOffset) + "T00:00:00").getDay();
   return day >= 1 && day <= 5;
@@ -553,6 +595,42 @@ export function buildSeed(): Record<string, DemoRow[]> {
         access_ends: summerEnd(),
       }),
     ],
+
+    channels: [
+      channelRow("demo-chan-office", "office", "standing", "Day-to-day office chat for the year-round team."),
+      channelRow("demo-chan-maintenance", "maintenance", "standing", "Repairs, grounds and anything broken."),
+      channelRow("demo-chan-kitchen", "kitchen", "standing", "Menus, headcounts and dietary needs."),
+      channelRow("demo-chan-grace", "grace-fellowship", "retreat_group", "Everything about Grace Fellowship youth retreat.", "demo-group-1"),
+      channelRow("demo-chan-lakeview", "lakeview-grade-6", "retreat_group", "Everything about Lakeview Public School - Grade 6.", "demo-group-2"),
+    ],
+
+    messages: [
+      // #grace-fellowship, the mockup's conversation
+      msg("demo-chan-grace", null, "Camp office", "Grace Fellowship youth retreat is confirmed for 42 people. This channel is for everything about their stay.", -60 * 50, "system"),
+      msg("demo-chan-grace", null, "Camp office", "Headcount changed from 42 to 48 by Jordan Reyes. Kitchen has been told.", -60 * 26, "system"),
+      msg("demo-chan-grace", staffUser("demo-staff-5"), "Jordan Reyes", "Marcus (their leader) called. Two more with nut allergies, so six dietary needs now. I've updated the booking notes.", -60 * 25),
+      msg("demo-chan-grace", staffUser("demo-staff-7"), "Rosa Bell", "Got it. I'll do a separate nut-free prep table for the weekend.", -60 * 24),
+      msg("demo-chan-grace", staffUser("demo-staff-6"), "Sam Okafor", "The cabin 4 door is sticking again. I'll sort it before Friday.", -60 * 3),
+      msg("demo-chan-grace", DEMO_USER_ID, "Alex Rivera", "Marcus asked about a late checkout Sunday (2pm instead of noon). I'm fine with it if the kitchen can do a later lunch. @Rosa Bell?", -60 * 2),
+      msg("demo-chan-grace", staffUser("demo-staff-7"), "Rosa Bell", "Later lunch works. I'll push it to 1pm.", -50),
+
+      // #office
+      msg("demo-chan-office", staffUser("demo-staff-1"), "Dana Brooks", "Morning! Spring program brochure draft is in the shared drive for comments.", -60 * 30),
+      msg("demo-chan-office", staffUser("demo-staff-5"), "Jordan Reyes", "Two new retreat inquiries came in overnight, a church youth group for March and a family reunion in May. On it.", -60 * 4),
+      msg("demo-chan-office", staffUser("demo-staff-1"), "Dana Brooks", "@Alex Rivera can you sign off the winter rates before Friday?", -40),
+
+      // #maintenance
+      msg("demo-chan-maintenance", staffUser("demo-staff-6"), "Sam Okafor", "Furnace service booked for the lodge on the 18th, between groups.", -60 * 20),
+
+      // #lakeview-grade-6
+      msg("demo-chan-lakeview", null, "Camp office", "Lakeview Public School - Grade 6 is confirmed for 64 people. This channel is for everything about their stay.", -60 * 24 * 6, "system"),
+      msg("demo-chan-lakeview", staffUser("demo-staff-5"), "Jordan Reyes", "Teachers want the night hike on Saturday. I'll check the forecast closer to the date.", -60 * 9),
+    ],
+
+    // Alex has read everything up to an hour ago, so the newest messages show as unread.
+    channel_reads: ["demo-chan-office", "demo-chan-maintenance", "demo-chan-kitchen", "demo-chan-grace", "demo-chan-lakeview"].map(
+      (channel_id) => ({ channel_id, user_id: DEMO_USER_ID, last_read_at: isoTime(-60 * 2 - 5) })
+    ),
 
     routines: [
       routineRow("demo-routine-1", "Morning walkthrough: lodge, cabins and grounds", {

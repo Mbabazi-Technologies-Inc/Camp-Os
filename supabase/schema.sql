@@ -477,3 +477,79 @@ create unique index if not exists tasks_routine_person_day_idx
 -- "done". Each task gets its own copy to tick through.
 alter table public.routines add column if not exists checklist text[];
 alter table public.tasks add column if not exists checklist jsonb;
+
+-- ---------------------------------------------------------------------------
+-- Chat: channels, messages and what each person has read.
+--
+-- kind 'standing' channels (#office, #kitchen) last all year. A 'retreat_group'
+-- channel is opened for each confirmed booking and archived after the group
+-- leaves. 'summer' channels hold a season's session and cabin-team chat.
+-- Messages are never deleted (safeguarding); kind 'system' is posted by the
+-- app itself, and task_id links a message to the task made from it.
+-- ---------------------------------------------------------------------------
+create table if not exists public.channels (
+  id uuid primary key default gen_random_uuid(),
+  camp_id uuid not null references public.camps (id) on delete cascade,
+  name text not null,
+  kind text not null default 'standing' check (kind in ('standing', 'retreat_group', 'summer')),
+  description text,
+  retreat_group_id uuid references public.retreat_groups (id) on delete set null,
+  archived boolean not null default false,
+  created_by uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  unique (camp_id, name)
+);
+
+alter table public.channels enable row level security;
+
+drop policy if exists "Members use their camp channels" on public.channels;
+create policy "Members use their camp channels" on public.channels
+  for all using (camp_id = public.user_camp_id())
+  with check (camp_id = public.user_camp_id());
+
+create unique index if not exists channels_retreat_group_idx
+  on public.channels (retreat_group_id) where retreat_group_id is not null;
+
+create table if not exists public.messages (
+  id uuid primary key default gen_random_uuid(),
+  camp_id uuid not null references public.camps (id) on delete cascade,
+  channel_id uuid not null references public.channels (id) on delete cascade,
+  author_id uuid references auth.users (id) on delete set null,
+  author_name text,
+  kind text not null default 'user' check (kind in ('user', 'system')),
+  body text not null,
+  task_id uuid references public.tasks (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.messages enable row level security;
+
+drop policy if exists "Members read their camp messages" on public.messages;
+create policy "Members read their camp messages" on public.messages
+  for select using (camp_id = public.user_camp_id());
+
+drop policy if exists "Members post in their camp" on public.messages;
+create policy "Members post in their camp" on public.messages
+  for insert with check (camp_id = public.user_camp_id());
+
+-- Only linking a task is allowed after posting; there is no delete policy.
+drop policy if exists "Members link tasks to messages" on public.messages;
+create policy "Members link tasks to messages" on public.messages
+  for update using (camp_id = public.user_camp_id())
+  with check (camp_id = public.user_camp_id());
+
+create index if not exists messages_channel_idx on public.messages (channel_id, created_at);
+
+create table if not exists public.channel_reads (
+  channel_id uuid not null references public.channels (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  last_read_at timestamptz not null default now(),
+  primary key (channel_id, user_id)
+);
+
+alter table public.channel_reads enable row level security;
+
+drop policy if exists "People manage their own read markers" on public.channel_reads;
+create policy "People manage their own read markers" on public.channel_reads
+  for all using (user_id = auth.uid())
+  with check (user_id = auth.uid());

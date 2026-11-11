@@ -53,7 +53,7 @@ function greetingForHour(hour: number) {
 }
 
 export default async function DashboardPage() {
-  const { supabase, campId, fullName, role } = await requireCamp();
+  const { supabase, campId, fullName, role, userId } = await requireCamp();
 
   const today = todayISODate();
   const tomorrow = tomorrowISODate();
@@ -142,6 +142,31 @@ export default async function DashboardPage() {
       : Promise.resolve({ data: [] as { id: string; assigned_to: string | null }[] }),
   ]);
 
+  // Mentions of me and anything unread in chat, newest first (the mockup's
+  // "Mentions & replies").
+  const myName = fullName ?? "";
+  const myFirst = myName.split(" ")[0];
+  const [{ data: recentMessages }, { data: myReads }, { data: channelRows }] = await Promise.all([
+    supabase
+      .from("messages")
+      .select("*")
+      .eq("kind", "user")
+      .gte("created_at", campISODate(-7))
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase.from("channel_reads").select("*").eq("user_id", userId),
+    supabase.from("channels").select("id, name, kind"),
+  ]);
+  const readAt = new Map((myReads ?? []).map((r) => [r.channel_id, r.last_read_at]));
+  const channelById = new Map((channelRows ?? []).map((c) => [c.id, c]));
+  const mentionsMe = (body: string) =>
+    Boolean(myName) && (body.includes(`@${myName}`) || (myFirst.length > 2 && body.includes(`@${myFirst}`)));
+  const forMe = (recentMessages ?? [])
+    .filter((m) => m.author_id !== userId)
+    .filter((m) => mentionsMe(m.body) || m.created_at > (readAt.get(m.channel_id) ?? ""))
+    .slice(0, 5)
+    .map((m) => ({ ...m, mention: mentionsMe(m.body), channel: channelById.get(m.channel_id) }));
+
   // Due today, overdue, or undated: what needs you now.
   const dueNow = (priorityTasks ?? []).filter((t) => !t.due_date || t.due_date <= today).slice(0, 8);
   const teamTasks = (teamToday ?? []).filter((t) => t.assigned_to);
@@ -204,7 +229,7 @@ export default async function DashboardPage() {
   const retreatSection = (
     <>
       {upcomingGroups.length > 0 && (
-        <section className={season === "summer" ? "mt-8" : "mb-8"}>
+        <section className="mt-8">
           <div className="flex items-center justify-between mb-2">
             <h2 className="font-semibold text-foreground">Upcoming retreat groups</h2>
             <Link href="/groups" className="text-sm font-medium text-primary hover:underline">
@@ -446,12 +471,55 @@ export default async function DashboardPage() {
         </form>
       </Card>
 
-      {season === "retreat" && retreatSection}
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-6">
       <section>
         <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold text-foreground">Due today &amp; overdue</h2>
+          <h2 className="font-semibold text-foreground">Mentions &amp; unread</h2>
+          <Link href="/chat" className="text-sm font-medium text-primary hover:underline">
+            Open chat
+          </Link>
+        </div>
+        <Card>
+          {forMe.length > 0 ? (
+            <ul className="divide-y divide-border">
+              {forMe.map((m) => (
+                <li key={m.id}>
+                  <Link
+                    href={`/chat/${m.channel?.name ?? ""}`}
+                    className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface-muted/50"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[11px] font-bold text-primary">
+                      {(m.author_name ?? "?").split(" ").map((p) => p[0]).join("").slice(0, 2)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm">
+                        <span className="font-semibold text-foreground">{m.author_name}</span>
+                        <span className="text-muted">
+                          {" "}in {m.channel?.kind === "retreat_group" ? "" : "#"}
+                          {m.channel?.name} · {formatRelativeTime(m.created_at)}
+                        </span>
+                      </span>
+                      <span className="line-clamp-2 text-sm text-foreground">{m.body}</span>
+                    </span>
+                    {m.mention && (
+                      <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-warning">@you</span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="py-6">
+              <EmptyState title="You're all caught up" description="New messages and @mentions of you show up here." />
+            </div>
+          )}
+        </Card>
+      </section>
+
+      <section>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-semibold text-foreground">Your tasks today</h2>
           <Link
             href="/tasks"
             className="text-sm font-medium text-primary hover:underline"
@@ -477,7 +545,7 @@ export default async function DashboardPage() {
         </Card>
       </section>
 
-      <section>
+      <section className="lg:col-span-2">
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-semibold text-foreground">
             Drafts awaiting your approval
@@ -540,7 +608,7 @@ export default async function DashboardPage() {
       </section>
       </div>
 
-      {season === "summer" && retreatSection}
+      {retreatSection}
     </div>
   );
 }

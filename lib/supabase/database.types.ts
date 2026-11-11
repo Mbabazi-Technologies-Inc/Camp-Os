@@ -9,6 +9,8 @@ export type MemberRole = "director" | "staff";
 export type StaffSeason = "year_round" | "summer";
 export type RoutineTargetType = "person" | "team";
 export type RoutineFrequency = "daily" | "weekly";
+export type ChannelKind = "standing" | "retreat_group" | "summer";
+export type MessageKind = "user" | "system";
 export type ChecklistItem = { label: string; done: boolean };
 
 export type RetreatGroupStatus = "inquiry" | "tentative" | "confirmed" | "cancelled";
@@ -226,6 +228,48 @@ export interface Database {
           target_type: RoutineTargetType;
         };
         Update: Partial<Database["public"]["Tables"]["routines"]["Row"]>;
+        Relationships: [];
+      };
+      channels: {
+        Row: {
+          id: string;
+          camp_id: string;
+          name: string;
+          kind: ChannelKind;
+          description: string | null;
+          retreat_group_id: string | null;
+          archived: boolean;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["channels"]["Row"]> & { camp_id: string; name: string };
+        Update: Partial<Database["public"]["Tables"]["channels"]["Row"]>;
+        Relationships: [];
+      };
+      messages: {
+        Row: {
+          id: string;
+          camp_id: string;
+          channel_id: string;
+          author_id: string | null;
+          author_name: string | null;
+          kind: MessageKind;
+          body: string;
+          task_id: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["messages"]["Row"]> & {
+          camp_id: string;
+          channel_id: string;
+          body: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["messages"]["Row"]>;
+        Relationships: [];
+      };
+      channel_reads: {
+        Row: { channel_id: string; user_id: string; last_read_at: string };
+        Insert: { channel_id: string; user_id: string; last_read_at?: string };
+        Update: Partial<Database["public"]["Tables"]["channel_reads"]["Row"]>;
         Relationships: [];
       };
       retreat_groups: {

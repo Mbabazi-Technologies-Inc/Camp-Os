@@ -209,6 +209,8 @@ const COLUMN_DEFAULTS: Record<string, DemoRow> = {
     status: "pending",
   },
   gmail_accounts: { last_synced_at: null, connected_by: null },
+  channels: { kind: "standing", description: null, retreat_group_id: null, archived: false, created_by: null },
+  messages: { author_id: null, author_name: null, kind: "user", task_id: null },
 };
 
 export class DemoQuery implements PromiseLike<DemoResult> {
