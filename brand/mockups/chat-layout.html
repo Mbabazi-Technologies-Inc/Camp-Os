@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camp Office Chat Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Fraunces:opsz,wght@9..144,600&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0f2f37; --navy-2: #163c46; --navy-3: #1d4a55; --teal: #14586b; --amber: #d98d2b; --peach: #f3b97a;
+    --forest: #3c7146; --paper: #f7f4ee; --surface: #ffffff; --line: #e6e0d5; --ink: #13262c; --muted: #66767b; --soft: #f1ede5;
+    --danger: #c2462f; --mention: #fff4e3;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #ebe6dc; color: var(--ink); font: 14px/1.45 Geist, system-ui, sans-serif; }
+  .page { max-width: 1240px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font: 600 36px/1.1 Fraunces, Georgia, serif; margin: 0 0 8px; }
+  h2 { font: 600 24px/1.2 Fraunces, Georgia, serif; margin: 56px 0 6px; }
+  .lede { color: var(--muted); max-width: 70ch; margin: 0 0 6px; font-size: 15px; }
+  .notes { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 16px 0 0; }
+  .note { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
+  .note b { color: var(--ink); display: block; margin-bottom: 2px; }
+  .note .num { display: inline-flex; width: 20px; height: 20px; border-radius: 99px; background: var(--amber); color: #fff; font-size: 11px; font-weight: 700; align-items: center; justify-content: center; margin-right: 6px; }
+
+  /* ---------- Desktop frame ---------- */
+  .frame { margin-top: 18px; border-radius: 14px; overflow: hidden; box-shadow: 0 24px 60px -24px rgba(15,47,55,.45), 0 0 0 1px rgba(15,47,55,.12); background: var(--paper); }
+  .chrome { height: 34px; background: #dcd6cb; display: flex; align-items: center; gap: 7px; padding: 0 14px; }
+  .chrome i { width: 11px; height: 11px; border-radius: 99px; background: #c4bdb1; display: block; }
+  .chrome .url { margin-left: 18px; background: #f3efe8; border-radius: 6px; font-size: 11.5px; color: var(--muted); padding: 3px 12px; }
+  .app { display: grid; grid-template-columns: 252px minmax(0, 1fr); height: 760px; }
+  .app.with-panel { grid-template-columns: 252px minmax(0, 1fr) 300px; }
+
+  .side { background: var(--navy); color: #c9d6d9; display: flex; flex-direction: column; min-height: 0; position: relative; overflow: hidden; }
+  .ws { display: flex; align-items: center; gap: 10px; padding: 14px 14px 12px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .ws svg { width: 34px; height: 34px; flex: none; }
+  .ws .name { font: 600 15px/1.15 Fraunces, serif; color: #fff; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 99px; letter-spacing: .02em; }
+  .chip.retreat { background: rgba(60,113,70,.35); color: #b8dcbf; }
+  .chip.summer { background: rgba(217,141,43,.25); color: var(--peach); }
+  .side .scroll { overflow: hidden; padding: 8px 8px 16px; flex: 1; }
+  .nav a { display: flex; align-items: center; gap: 9px; padding: 5px 10px; border-radius: 7px; color: #c9d6d9; text-decoration: none; font-size: 13.5px; }
+  .nav a .ic { width: 16px; text-align: center; opacity: .8; font-size: 13px; }
+  .nav a.on { background: var(--teal); color: #fff; }
+  .nav a.unread { color: #fff; font-weight: 600; }
+  .nav a .badge { margin-left: auto; background: var(--amber); color: #fff; border-radius: 99px; font-size: 10.5px; font-weight: 700; padding: 0 6px; line-height: 17px; }
+  .nav a .dim { margin-left: auto; font-size: 11px; color: #86a0a6; }
+  .sec { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #86a0a6; padding: 14px 10px 4px; display: flex; justify-content: space-between; }
+  .sec .plus { letter-spacing: 0; font-size: 14px; line-height: 1; }
+  .hash { opacity: .6; width: 16px; text-align: center; }
+  .dot { width: 8px; height: 8px; border-radius: 99px; background: #4fb06a; display: inline-block; flex: none; margin: 0 4px; }
+  .dot.off { background: transparent; border: 1.5px solid #6d8a90; }
+  .tools { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; padding: 6px 2px 2px; }
+  .tools a { flex-direction: column; gap: 2px; padding: 7px 2px; font-size: 11px; background: rgba(255,255,255,.04); border-radius: 8px; justify-content: center; text-align: center; position: relative; }
+  .tools a .ic { font-size: 15px; width: auto; }
+  .tools a .badge { position: absolute; top: 3px; right: 5px; margin: 0; }
+  .side .me { border-top: 1px solid rgba(255,255,255,.08); padding: 10px 14px; display: flex; align-items: center; gap: 9px; font-size: 12.5px; }
+  .tree { position: absolute; left: 0; right: 0; bottom: 44px; height: 46px; opacity: .14; pointer-events: none; }
+
+  .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--paper); }
+  .chead { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .chead h3 { margin: 0; font-size: 16px; font-weight: 700; }
+  .chead .sub { font-size: 12px; color: var(--muted); }
+  .chead .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .avs { display: flex; }
+  .av { width: 28px; height: 28px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex: none; }
+  .avs .av { width: 24px; height: 24px; font-size: 9.5px; border: 2px solid #fff; margin-left: -6px; }
+  .btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 5px 10px; font: 600 12.5px Geist, sans-serif; color: var(--ink); display: inline-flex; gap: 6px; align-items: center; }
+  .btn.primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .btn.amber { background: var(--amber); color: #fff; border-color: var(--amber); }
+  .linked { margin: 12px 20px 0; display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+  .date { width: 44px; text-align: center; border-radius: 9px; background: #e4efe6; color: var(--forest); padding: 4px 0; flex: none; }
+  .date b { display: block; font-size: 17px; line-height: 1.05; }
+  .date span { font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: .05em; }
+  .linked .meta { font-size: 12.5px; color: var(--muted); }
+  .linked .meta b { color: var(--ink); font-size: 14px; display: block; }
+  .pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+  .pill.ok { background: #e4efe6; color: var(--forest); }
+  .pill.warn { background: #fdf0de; color: #a8650f; }
+  .pill.task { background: #e3eef1; color: var(--teal); }
+  .stats { display: flex; gap: 18px; margin-left: auto; font-size: 12px; color: var(--muted); }
+  .stats b { color: var(--ink); font-size: 15px; display: block; }
+
+  .feed { flex: 1; overflow: hidden; padding: 6px 20px 8px; display: flex; flex-direction: column; justify-content: flex-end; }
+  .day { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 11.5px; font-weight: 600; margin: 10px 0 4px; }
+  .day::before, .day::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .msg { display: flex; gap: 10px; padding: 7px 8px; margin: 0 -8px; border-radius: 10px; position: relative; }
+  .msg .body { min-width: 0; flex: 1; }
+  .msg .who { font-weight: 700; font-size: 13.5px; }
+  .msg .who time { font-weight: 400; color: var(--muted); font-size: 11.5px; margin-left: 6px; }
+  .msg p { margin: 1px 0 0; }
+  .msg.hover { background: var(--surface); box-shadow: 0 0 0 1px var(--line); }
+  .msg .actions { position: absolute; top: -12px; right: 10px; display: flex; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 6px 16px -8px rgba(0,0,0,.25); overflow: hidden; }
+  .msg .actions span { padding: 4px 9px; font-size: 12px; border-right: 1px solid var(--line); color: var(--muted); }
+  .msg .actions span:last-child { border: 0; }
+  .msg .actions span.hl { color: var(--teal); font-weight: 700; background: #e3eef1; }
+  .mention { background: var(--mention); color: #a8650f; font-weight: 600; border-radius: 4px; padding: 0 3px; }
+  .reacts { display: flex; gap: 5px; margin-top: 5px; }
+  .reacts span { font-size: 11.5px; border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 1px 8px; }
+  .reacts span.mine { border-color: #9cc3cd; background: #e3eef1; }
+  .thread { font-size: 12px; color: var(--teal); font-weight: 600; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+  .thread .avs .av { width: 18px; height: 18px; font-size: 8px; }
+  .system { display: flex; gap: 10px; align-items: flex-start; padding: 8px 12px; border-radius: 10px; background: #eef4f0; border: 1px dashed #b9d3bf; margin: 6px 0; font-size: 13px; }
+  .system .bot { width: 28px; height: 28px; border-radius: 8px; background: var(--forest); color: #fff; display: inline-flex; align-items: center; justify-content: center; flex: none; font-size: 14px; }
+  .system .who { font-weight: 700; }
+  .system .who small { font-weight: 600; font-size: 10px; background: #d5e6d9; color: var(--forest); border-radius: 4px; padding: 1px 5px; margin-left: 4px; letter-spacing: .04em; }
+  .taskcard { margin-top: 6px; display: inline-flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--teal); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; }
+  .check { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid #9aa9ad; display: inline-block; }
+  .check.done { background: var(--forest); border-color: var(--forest); position: relative; }
+  .check.done::after { content: "✓"; color: #fff; font-size: 11px; position: absolute; top: -2px; left: 2px; }
+
+  .composer { margin: 0 20px 16px; border: 1px solid #cfc7b9; border-radius: 12px; background: var(--surface); }
+  .composer .input { padding: 10px 12px; color: var(--muted); font-size: 13.5px; }
+  .composer .bar { display: flex; align-items: center; gap: 12px; padding: 6px 10px; border-top: 1px solid var(--soft); color: var(--muted); font-size: 13px; }
+  .composer .send { margin-left: auto; background: var(--navy); color: #fff; border-radius: 7px; padding: 3px 10px; font-weight: 600; font-size: 12px; }
+
+  .panel { border-left: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
+  .panel .ph { padding: 13px 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
+  .panel .ph span { color: var(--muted); font-weight: 400; font-size: 18px; }
+  .panel .pb { padding: 14px 16px; overflow: hidden; font-size: 13px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+  .fake { border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: var(--paper); }
+  .quote { border-left: 3px solid var(--line); padding: 4px 10px; color: var(--muted); font-size: 12.5px; margin-bottom: 14px; }
+
+  /* Home */
+  .home { padding: 22px 26px; overflow: hidden; }
+  .banner { border-radius: 16px; background: linear-gradient(135deg, #b8691a, var(--amber) 55%, #e8a854); color: #fff; padding: 18px 20px; position: relative; overflow: hidden; }
+  .banner h3 { font: 600 26px/1.1 Fraunces, serif; margin: 6px 0 4px; }
+  .banner p { margin: 0; opacity: .92; font-size: 13.5px; }
+  .banner .chip { background: rgba(255,255,255,.2); color: #fff; }
+  .cols { display: grid; grid-template-columns: 1.25fr 1fr; gap: 16px; margin-top: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+  .card h4 { margin: 0; padding: 12px 14px 8px; font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; }
+  .card h4 a { font-size: 12px; color: var(--teal); text-decoration: none; font-weight: 600; }
+  .row { display: flex; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--soft); font-size: 13px; align-items: flex-start; }
+  .row .ch { font-size: 11.5px; color: var(--muted); }
+  .row p { margin: 1px 0 0; }
+
+  /* ---------- Phones ---------- */
+  .phones { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 18px; }
+  .phonewrap { width: 300px; }
+  .phonewrap figcaption { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .phonewrap figcaption b { color: var(--ink); display: block; }
+  .phone { width: 300px; height: 620px; border-radius: 42px; background: #0b1416; padding: 10px; box-shadow: 0 24px 50px -22px rgba(15,47,55,.55); }
+  .screen { width: 100%; height: 100%; border-radius: 33px; overflow: hidden; background: var(--paper); display: flex; flex-direction: column; position: relative; }
+  .status { height: 34px; display: flex; justify-content: space-between; align-items: center; padding: 0 22px; font-size: 12px; font-weight: 700; flex: none; }
+  .status.dark { background: var(--navy); color: #fff; }
+  .notch { position: absolute; top: 9px; left: 50%; transform: translateX(-50%); width: 84px; height: 22px; border-radius: 99px; background: #0b1416; }
+  .ptop { background: var(--navy); color: #fff; padding: 4px 16px 12px; flex: none; }
+  .ptop .t { font: 600 20px Fraunces, serif; display: flex; justify-content: space-between; align-items: center; }
+  .search { margin-top: 10px; background: rgba(255,255,255,.1); border-radius: 9px; padding: 7px 10px; font-size: 12.5px; color: #a9bfc4; }
+  .plist { flex: 1; overflow: hidden; padding: 4px 0; }
+  .plist .sec { color: var(--muted); padding: 12px 16px 4px; }
+  .pitem { display: flex; align-items: center; gap: 10px; padding: 8px 16px; font-size: 14px; }
+  .pitem .h { width: 30px; height: 30px; border-radius: 8px; background: var(--soft); display: inline-flex; align-items: center; justify-content: center; color: var(--muted); font-weight: 700; flex: none; }
+  .pitem .txt { min-width: 0; flex: 1; }
+  .pitem .txt small { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pitem.unread b { font-weight: 700; }
+  .pitem .badge { background: var(--amber); color: #fff; border-radius: 99px; font-size: 10.5px; font-weight: 700; padding: 0 6px; line-height: 17px; }
+  .tabbar { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--line); background: var(--surface); padding: 6px 4px 18px; }
+  .tabbar.four { grid-template-columns: repeat(4, 1fr); }
+  .tabbar span { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: var(--muted); gap: 1px; position: relative; }
+  .tabbar span i { font-style: normal; font-size: 17px; }
+  .tabbar span.on { color: var(--navy); font-weight: 700; }
+  .tabbar span .badge { position: absolute; top: -2px; left: 54%; background: var(--amber); color: #fff; border-radius: 99px; font-size: 9px; font-weight: 700; padding: 0 5px; line-height: 15px; }
+  .pchead { background: var(--surface); border-bottom: 1px solid var(--line); padding: 4px 14px 10px; display: flex; align-items: center; gap: 10px; flex: none; }
+  .pchead b { font-size: 15px; display: block; }
+  .pchead small { color: var(--muted); font-size: 11.5px; }
+  .pfeed { flex: 1; overflow: hidden; padding: 6px 14px; display: flex; flex-direction: column; justify-content: flex-end; font-size: 13.5px; }
+  .pfeed .msg { padding: 6px 0; margin: 0; }
+  .pcomp { flex: none; margin: 6px 10px 22px; border: 1px solid #cfc7b9; border-radius: 22px; padding: 8px 14px; color: var(--muted); font-size: 13px; display: flex; justify-content: space-between; background: var(--surface); }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 22px 22px 0 0; box-shadow: 0 -12px 30px rgba(0,0,0,.18); padding: 8px 16px 26px; }
+  .sheet .grab { width: 36px; height: 4px; border-radius: 99px; background: #d6d0c5; margin: 0 auto 12px; }
+  .scrim { position: absolute; inset: 0; background: rgba(11,20,22,.35); }
+  .sheet h5 { margin: 0 0 10px; font: 600 17px Fraunces, serif; }
+  .sheet .field { margin-bottom: 9px; }
+  .sheet .fake { font-size: 13px; }
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .lock { margin: 10px 14px; padding: 10px 12px; border-radius: 12px; background: #fdf0de; color: #8a5410; font-size: 12px; }
+
+  /* Team tasks */
+  .seg { display: inline-flex; background: var(--soft); border-radius: 9px; padding: 2px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .seg span { padding: 4px 10px; border-radius: 7px; }
+  .seg span.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .seg.wide { display: flex; } .seg.wide span { flex: 1; text-align: center; }
+  .tt { padding: 16px 20px; overflow: hidden; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 12px; color: var(--muted); }
+  .kpi b { display: block; font-size: 22px; color: var(--ink); line-height: 1.1; }
+  .kpi b small { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .kpi.late b { color: var(--danger); }
+  .bar { height: 6px; border-radius: 99px; background: var(--soft); overflow: hidden; margin-top: 6px; }
+  .bar i { display: block; height: 100%; background: var(--forest); border-radius: 99px; }
+  .bar.light { background: rgba(255,255,255,.15); flex: 1; margin: 0; } .bar.light i { background: var(--peach); }
+  .mini { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 12px; color: #c9d6d9; }
+  .rt { display: grid; grid-template-columns: 190px 1fr auto; gap: 12px; align-items: center; padding: 9px 14px; border-top: 1px solid var(--soft); font-size: 13px; }
+  .rname small { display: block; color: var(--muted); font-size: 11.5px; }
+  .cells { display: flex; gap: 3px; flex-wrap: wrap; }
+  .c { width: 20px; height: 20px; border-radius: 6px; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+  .c.ok { background: #e4efe6; color: var(--forest); } .c.late { background: #f8e1dc; color: var(--danger); } .c.todo { background: var(--soft); color: var(--muted); }
+  .who-done { display: flex; align-items: center; gap: 7px; font-size: 12.5px; }
+  .people { display: grid; grid-template-columns: 1fr 1fr; }
+  .pp { display: grid; grid-template-columns: auto 1fr 70px auto; gap: 9px; align-items: center; padding: 9px 14px; border-top: 1px solid var(--soft); font-size: 12px; color: var(--muted); }
+  .pp .bar { margin: 0; }
+  .pn b { color: var(--ink); font-size: 13px; display: block; } .pn small { font-size: 11px; }
+  .late-t { color: var(--danger); font-weight: 600; } .ok-t { color: var(--forest); font-weight: 600; }
+  .tag { background: #fdf0de; color: #8a5410; border-radius: 6px; padding: 1px 7px; font-size: 12px; font-weight: 600; }
+  .hint { color: var(--muted); font-size: 11.5px; margin: 4px 0 0; }
+  .tk { display: flex; align-items: center; gap: 10px; padding: 9px 16px; font-size: 13.5px; }
+  .tk .check { width: 18px; height: 18px; flex: none; }
+  .tk .txt { min-width: 0; flex: 1; }
+  .tk .txt small { display: block; color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tk.done b { color: var(--muted); text-decoration: line-through; font-weight: 500; }
+  .rep { color: var(--teal); font-weight: 700; margin-right: 3px; }
+  .nudge { font-size: 11.5px; font-weight: 700; color: #fff; background: var(--amber); border-radius: 99px; padding: 3px 10px; }
+
+  @media (max-width: 900px) {
+    .app, .app.with-panel { grid-template-columns: 220px minmax(640px, 1fr); }
+    .frame { overflow-x: auto; }
+    .panel { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Camp office as a chat workspace</h1>
+  <p class="lede">Mockups of the Slack-style direction: channels down the left, the existing tools alongside them, and conversations tied to real camp work. The first screen shows retreat season with year-round staff; the next shows summer with counsellors.</p>
+
+  <!-- ===================== 1. Retreat season: channel ===================== -->
+  <h2>1 · Retreat season: a retreat group's channel</h2>
+  <p class="lede">November, with five year-round staff. Each confirmed retreat group gets its own channel, linked to its booking. The app posts updates into it, and any message can become a task.</p>
+
+  <div class="frame">
+    <div class="chrome"><i></i><i></i><i></i><span class="url">camp.millstream.ca/chat/grace-fellowship-nov14</span></div>
+    <div class="app with-panel">
+      <aside class="side">
+        <div class="ws">
+          <svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="96" fill="#14586b"/><circle cx="100" cy="100" r="88" fill="none" stroke="#d98d2b" stroke-width="5"/><g fill="#3c7146"><path d="M100 50 L 76 104 H 124Z"/><path d="M70 72 L 52 108 H 88Z"/><path d="M130 72 L 112 108 H 148Z"/></g><path d="M48 124 Q 66 112 84 124 T 120 124 T 152 124" stroke="#fdfefd" stroke-width="8" fill="none" stroke-linecap="round"/><path d="M56 144 Q 74 132 92 144 T 128 144 T 146 144" stroke="#f3b97a" stroke-width="6" fill="none" stroke-linecap="round"/></svg>
+          <div><div class="name">Mill Stream</div><span class="chip retreat">● Retreat season</span></div>
+        </div>
+        <div class="scroll">
+          <nav class="nav">
+            <a><span class="ic">⌂</span>Home <span class="badge">2</span></a>
+            <div class="tools">
+              <a><span class="ic">✓</span>Tasks<span class="badge">3</span></a>
+              <a><span class="ic">✉</span>Email<span class="badge">3</span></a>
+              <a><span class="ic">▲</span>Retreats</a>
+              <a><span class="ic">☺</span>People</a>
+              <a><span class="ic">❏</span>Knowledge</a>
+              <a><span class="ic">⚙</span>Settings</a>
+            </div>
+            <div class="sec">Channels <span class="plus">+</span></div>
+            <a class="unread"><span class="hash">#</span>office <span class="badge">4</span></a>
+            <a><span class="hash">#</span>maintenance</a>
+            <a><span class="hash">#</span>kitchen</a>
+            <div class="sec">Retreat groups <span class="plus">+</span></div>
+            <a class="on"><span class="hash">▲</span>grace-fellowship <span class="dim">Nov 14</span></a>
+            <a class="unread"><span class="hash">▲</span>lakeview-grade-6 <span class="dim">Nov 21</span></a>
+            <a><span class="hash">▲</span>st-pauls-mens <span class="dim">Dec 5</span></a>
+            <div class="sec">Direct messages <span class="plus">+</span></div>
+            <a><span class="dot"></span>Jordan Reyes</a>
+            <a><span class="dot"></span>Priya Shah</a>
+            <a><span class="dot off"></span>Sam Okafor</a>
+          </nav>
+        </div>
+        <svg class="tree" viewBox="0 0 252 46" preserveAspectRatio="none"><path fill="#fff" d="M0 46 L0 30 L10 14 L20 30 L28 18 L38 6 L48 22 L56 12 L66 28 L76 10 L88 30 L98 16 L108 4 L118 24 L128 14 L140 30 L150 8 L162 28 L172 18 L182 32 L192 12 L204 26 L214 6 L226 30 L236 16 L252 28 L252 46Z"/></svg>
+        <div class="me"><span class="av" style="background:#d98d2b">AM</span><div><b style="color:#fff">Alex Morgan</b><br><span style="font-size:11px">Director</span></div></div>
+      </aside>
+
+      <section class="main">
+        <div class="chead">
+          <div><h3>▲ grace-fellowship</h3><div class="sub">Retreat group channel · 5 staff + kitchen</div></div>
+          <div class="right">
+            <div class="avs"><span class="av" style="background:#d98d2b">AM</span><span class="av" style="background:#14586b">JR</span><span class="av" style="background:#3c7146">PS</span><span class="av" style="background:#7a5c9a">SO</span></div>
+            <span class="btn">Open booking →</span>
+          </div>
+        </div>
+        <div class="linked">
+          <div class="date"><b>14</b><span>Nov</span></div>
+          <div class="meta"><b>Grace Fellowship youth retreat</b>Fri Nov 14 – Sun Nov 16 · 2 nights</div>
+          <span class="pill ok">Confirmed</span>
+          <div class="stats"><div><b>48</b>people</div><div><b>6</b>dietary</div><div><b>2</b>open tasks</div></div>
+        </div>
+        <div class="feed">
+          <div class="day">Yesterday</div>
+          <div class="system"><span class="bot">▲</span><div><span class="who">Camp office <small>APP</small></span> Headcount changed from <s>42</s> to <b>48</b> by Priya Shah. Kitchen has been notified.</div></div>
+          <div class="msg">
+            <span class="av" style="background:#3c7146">PS</span>
+            <div class="body"><div class="who">Priya Shah <time>3:12 PM</time></div>
+              <p>Leader (Dana) called. Two more with nut allergies, so six dietary needs now. I've updated the booking notes.</p>
+              <div class="reacts"><span class="mine">👍 2</span><span>🥜 1</span></div>
+            </div>
+          </div>
+          <div class="day">Today</div>
+          <div class="msg hover">
+            <span class="av" style="background:#14586b">JR</span>
+            <div class="body"><div class="who">Jordan Reyes <time>9:41 AM</time></div>
+              <p>The cabin 4 door is sticking again. Can someone sort it before Friday? <span class="mention">@Sam Okafor</span></p>
+              <div class="taskcard"><span class="check"></span><div><b>Fix cabin 4 door</b> · Sam Okafor · due Thu Nov 13</div><span class="pill task">Task</span></div>
+            </div>
+            <div class="actions"><span>😀</span><span>Reply in thread</span><span class="hl">✓ Make task</span><span>⋯</span></div>
+          </div>
+          <div class="msg">
+            <span class="av" style="background:#d98d2b">AM</span>
+            <div class="body"><div class="who">Alex Morgan <time>10:05 AM</time></div>
+              <p>Dana asked about a late checkout Sunday (2pm instead of noon). I'm fine with it if the kitchen can do a later lunch. Thoughts?</p>
+              <div class="thread"><div class="avs"><span class="av" style="background:#3c7146">PS</span><span class="av" style="background:#7a5c9a">SO</span></div>3 replies · last reply 10:32 AM</div>
+            </div>
+          </div>
+          <div class="system"><span class="bot">✉</span><div><span class="who">Email assistant <small>APP</small></span> Drafted a reply to Dana confirming the 2pm checkout. <b style="color:var(--teal)">Review draft →</b></div></div>
+        </div>
+        <div class="composer">
+          <div class="input">Message ▲ grace-fellowship</div>
+          <div class="bar"><span>＋</span><span><b>B</b></span><span>@</span><span>📎</span><span>✓ Task</span><span class="send">Send</span></div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="ph">Make a task <span>×</span></div>
+        <div class="pb">
+          <div class="quote">"The cabin 4 door is sticking again. Can someone sort it before Friday?" (Jordan)</div>
+          <div class="field"><label>Task</label><div class="fake">Fix cabin 4 door</div></div>
+          <div class="field"><label>Assign to</label><div class="fake" style="display:flex;align-items:center;gap:8px"><span class="av" style="background:#7a5c9a;width:20px;height:20px;font-size:8.5px">SO</span>Sam Okafor</div></div>
+          <div class="duo">
+            <div class="field"><label>Due</label><div class="fake">Thu, Nov 13</div></div>
+            <div class="field"><label>Priority</label><div class="fake">High</div></div>
+          </div>
+          <div class="field"><label>Linked to</label><div class="fake">▲ Grace Fellowship retreat</div></div>
+          <p style="color:var(--muted);font-size:12px;margin:2px 0 14px">The task links back to this message, and the channel gets a note when it's done.</p>
+          <span class="btn primary" style="width:100%;justify-content:center;padding:8px">Create task</span>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="note"><span class="num">1</span><b>Retreat groups get channels</b>Created when a booking is confirmed and archived a week after the group leaves. The booking summary is pinned at the top.</div>
+    <div class="note"><span class="num">2</span><b>The app posts too</b>Headcount changes, email drafts and arrival reminders show up as "Camp office" posts, so the channel is the group's full history.</div>
+    <div class="note"><span class="num">3</span><b>Message → task</b>Hover any message, choose "Make task", and it's assigned with a due date. The task links back to the conversation.</div>
+    <div class="note"><span class="num">4</span><b>Tools stay one click away</b>Tasks, Email and Retreats sit above the channels with their counts, much like Slack's apps.</div>
+  </div>
+
+  <!-- ===================== 2. Summer: Home ===================== -->
+  <h2>2 · Summer: Home for the director</h2>
+  <p class="lede">July, with 40+ counsellors in the workspace. Home replaces the dashboard: your mentions, what's due, and the day's briefing. A "Summer 2027" section appears in the sidebar and moves to the archive in September.</p>
+
+  <div class="frame">
+    <div class="chrome"><i></i><i></i><i></i><span class="url">camp.millstream.ca/home</span></div>
+    <div class="app" style="height:600px">
+      <aside class="side">
+        <div class="ws">
+          <svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="96" fill="#14586b"/><circle cx="100" cy="100" r="88" fill="none" stroke="#d98d2b" stroke-width="5"/><g fill="#3c7146"><path d="M100 50 L 76 104 H 124Z"/><path d="M70 72 L 52 108 H 88Z"/><path d="M130 72 L 112 108 H 148Z"/></g><path d="M48 124 Q 66 112 84 124 T 120 124 T 152 124" stroke="#fdfefd" stroke-width="8" fill="none" stroke-linecap="round"/><path d="M56 144 Q 74 132 92 144 T 128 144 T 146 144" stroke="#f3b97a" stroke-width="6" fill="none" stroke-linecap="round"/></svg>
+          <div><div class="name">Mill Stream</div><span class="chip summer">☀ Summer · Week 3</span></div>
+        </div>
+        <div class="scroll">
+          <nav class="nav">
+            <a class="on"><span class="ic">⌂</span>Home <span class="badge">5</span></a>
+            <div class="tools">
+              <a><span class="ic">✓</span>Tasks<span class="badge">7</span></a>
+              <a><span class="ic">✉</span>Email<span class="badge">12</span></a>
+              <a><span class="ic">☀</span>Sessions</a>
+              <a><span class="ic">☺</span>People</a>
+              <a><span class="ic">❏</span>Knowledge</a>
+              <a><span class="ic">⚙</span>Settings</a>
+            </div>
+            <div class="sec">Channels <span class="plus">+</span></div>
+            <a class="unread"><span class="hash">#</span>all-staff <span class="badge">1</span></a>
+            <a class="unread"><span class="hash">#</span>office</a>
+            <a><span class="hash">#</span>kitchen</a>
+            <a><span class="hash">#</span>waterfront</a>
+            <div class="sec">Summer 2027 <span class="plus">+</span></div>
+            <a class="unread"><span class="hash">☀</span>week-3-juniors <span class="badge">3</span></a>
+            <a><span class="hash">☀</span>week-3-seniors</a>
+            <a><span class="hash">☀</span>cabin-leaders</a>
+            <a><span class="hash">☀</span>program-team</a>
+            <div class="sec">Direct messages <span class="plus">+</span></div>
+            <a><span class="dot"></span>Jordan Reyes</a>
+            <a><span class="dot"></span>Maya Lin <span class="dim">Waterfront</span></a>
+          </nav>
+        </div>
+        <svg class="tree" viewBox="0 0 252 46" preserveAspectRatio="none"><path fill="#fff" d="M0 46 L0 30 L10 14 L20 30 L28 18 L38 6 L48 22 L56 12 L66 28 L76 10 L88 30 L98 16 L108 4 L118 24 L128 14 L140 30 L150 8 L162 28 L172 18 L182 32 L192 12 L204 26 L214 6 L226 30 L236 16 L252 28 L252 46Z"/></svg>
+        <div class="me"><span class="av" style="background:#d98d2b">AM</span><div><b style="color:#fff">Alex Morgan</b><br><span style="font-size:11px">Director</span></div></div>
+      </aside>
+
+      <section class="main">
+        <div class="home">
+          <div class="banner">
+            <span class="chip">☀ Week 3 of 8 · Juniors &amp; Seniors · 96 campers</span>
+            <h3>Good morning, Alex</h3>
+            <p>Thunderstorm warning after 3pm, so waterfront is closed this afternoon. 2 campers are going home early today. 12 parent emails are waiting.</p>
+          </div>
+          <div class="cols">
+            <div class="card">
+              <h4>Mentions &amp; replies <a>See all</a></h4>
+              <div class="row"><span class="av" style="background:#2d7d8a">ML</span><div><b>Maya Lin</b> <span class="ch">in ☀ week-3-juniors · 8:52 AM</span><p><span class="mention">@Alex Morgan</span> Waterfront's closed after 3, so can we swap juniors to the craft barn?</p></div></div>
+              <div class="row"><span class="av" style="background:#14586b">JR</span><div><b>Jordan Reyes</b> <span class="ch">in # office · 8:30 AM</span><p>Cabin 7 parent called about meds. Draft reply is ready for you <span class="mention">@Alex Morgan</span></p></div></div>
+              <div class="row"><span class="av" style="background:#b4532a">TK</span><div><b>Theo Kim</b> <span class="ch">thread in ☀ cabin-leaders · 7:58 AM</span><p>Done. All cabins have swim buddies assigned for tomorrow.</p></div></div>
+            </div>
+            <div>
+              <div class="card">
+                <h4>Your tasks today <a>Tasks →</a></h4>
+                <div class="row"><span class="check"></span><div>Call Ellis family re: early pickup<div class="ch">From # office · due 11am</div></div></div>
+                <div class="row"><span class="check"></span><div>Sign off week 4 cabin list<div class="ch">Due today</div></div></div>
+                <div class="row"><span class="check done"></span><div style="color:var(--muted);text-decoration:line-through">Approve rainy-day schedule</div></div>
+              </div>
+              <div class="card" style="margin-top:14px">
+                <h4>Staff on site <a>People →</a></h4>
+                <div class="row" style="align-items:center"><div class="avs" style="padding-left:6px"><span class="av" style="background:#2d7d8a">ML</span><span class="av" style="background:#b4532a">TK</span><span class="av" style="background:#14586b">JR</span><span class="av" style="background:#3c7146">PS</span><span class="av" style="background:#7a5c9a">SO</span></div><span class="ch">41 counsellors · 6 year-round · 3 CITs (under 18)</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="note"><span class="num">1</span><b>The season sets the sidebar</b>Summer adds session and cabin-team channels plus a Sessions tool. In September they move to an archive and Retreat groups comes back to the top.</div>
+    <div class="note"><span class="num">2</span><b>Home, not a dashboard</b>Mentions, your tasks and the briefing in one place, so staff open the app to see what needs them.</div>
+    <div class="note"><span class="num">3</span><b>Staff are counted by type</b>Counsellors, year-round staff and under-18 CITs are tracked separately for safeguarding rules and the season-end clean-up.</div>
+  </div>
+
+  <!-- ===================== 3. Phones ===================== -->
+  <h2>3 · On the phone</h2>
+  <p class="lede">Most summer staff will only ever use it on their phones. Counsellors get a lighter app: chat, their tasks, Knowledge and People, without parent email or bookings.</p>
+
+  <div class="phones">
+    <!-- Chat list (director, summer) -->
+    <figure class="phonewrap" style="margin:0">
+      <div class="phone"><div class="screen">
+        <div class="notch"></div>
+        <div class="status dark"><span>9:41</span><span>●●● ▮</span></div>
+        <div class="ptop"><div class="t">Chat <span style="font:600 13px Geist">✎</span></div><div class="search">Search messages and people</div></div>
+        <div class="plist">
+          <div class="sec">Channels</div>
+          <div class="pitem unread"><span class="h">#</span><div class="txt"><b>all-staff</b><small>Alex: Storm plan is posted, check pinned</small></div><span class="badge">1</span></div>
+          <div class="pitem unread"><span class="h">#</span><div class="txt"><b>office</b><small>Jordan: Cabin 7 parent called about meds…</small></div></div>
+          <div class="sec">Summer 2027</div>
+          <div class="pitem unread"><span class="h" style="color:#a8650f;background:#fdf0de">☀</span><div class="txt"><b>week-3-juniors</b><small>Maya: can we swap to the craft barn?</small></div><span class="badge">3</span></div>
+          <div class="pitem"><span class="h" style="color:#a8650f;background:#fdf0de">☀</span><div class="txt">cabin-leaders<small>Theo: Done. All cabins have swim buddies</small></div></div>
+          <div class="sec">Direct messages</div>
+          <div class="pitem"><span class="av" style="background:#14586b;width:30px;height:30px">JR</span><div class="txt">Jordan Reyes<small>Sounds good 👍</small></div></div>
+        </div>
+        <div class="tabbar"><span><i>⌂</i>Home</span><span class="on"><i>💬</i>Chat<span class="badge">4</span></span><span><i>✓</i>Tasks<span class="badge">7</span></span><span><i>✉</i>Email</span><span><i>≡</i>More</span></div>
+      </div></div>
+      <figcaption><b>Chat list</b>The director's view in summer, with five tabs. Unread channels show in bold with a count.</figcaption>
+    </figure>
+
+    <!-- Channel + make task sheet -->
+    <figure class="phonewrap" style="margin:0">
+      <div class="phone"><div class="screen">
+        <div class="notch"></div>
+        <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+        <div class="pchead"><span style="font-size:18px;color:var(--muted)">‹</span><div><b>☀ week-3-juniors</b><small>14 members · Week 3 · Jul 19–25</small></div></div>
+        <div class="pfeed" style="justify-content:flex-start">
+          <div class="msg"><span class="av" style="background:#2d7d8a">ML</span><div class="body"><div class="who">Maya Lin <time>8:52</time></div><p>Waterfront's closed after 3. Can we swap juniors to the craft barn? <span class="mention">@Alex</span></p></div></div>
+          <div class="msg"><span class="av" style="background:#b4532a">TK</span><div class="body"><div class="who">Theo Kim <time>8:55</time></div><p>Craft barn needs the paint table cleared from this morning</p></div></div>
+        </div>
+        <div class="pcomp"><span>Message ☀ week-3-juniors</span><span>＋</span></div>
+        <div class="scrim"></div>
+        <div class="sheet">
+          <div class="grab"></div>
+          <h5>Make a task</h5>
+          <div class="field"><label>Task</label><div class="fake">Clear paint table in craft barn</div></div>
+          <div class="duo">
+            <div class="field"><label>Assign to</label><div class="fake">Theo Kim</div></div>
+            <div class="field"><label>Due</label><div class="fake">Today 2:30</div></div>
+          </div>
+          <span class="btn primary" style="width:100%;justify-content:center;padding:9px">Create task</span>
+        </div>
+      </div></div>
+      <figcaption><b>Long-press → Make task</b>On the phone, press and hold a message to turn it into a task from a bottom sheet.</figcaption>
+    </figure>
+
+    <!-- Counsellor view -->
+    <figure class="phonewrap" style="margin:0">
+      <div class="phone"><div class="screen">
+        <div class="notch"></div>
+        <div class="status dark"><span>9:41</span><span>●●● ▮</span></div>
+        <div class="ptop"><div class="t">Hi, Theo <span class="chip summer">☀ Counsellor</span></div><div class="search">Search</div></div>
+        <div class="plist">
+          <div class="sec">For you</div>
+          <div class="pitem"><span class="check" style="margin:0 8px"></span><div class="txt"><b>Clear paint table in craft barn</b><small>From Maya in ☀ week-3-juniors · due 2:30</small></div></div>
+          <div class="pitem"><span class="h">❏</span><div class="txt">Rainy-day schedule<small>Pinned in Knowledge by Alex</small></div></div>
+          <div class="sec">Your channels</div>
+          <div class="pitem unread"><span class="h">#</span><div class="txt"><b>all-staff</b><small>Alex: Storm plan is posted</small></div><span class="badge">1</span></div>
+          <div class="pitem"><span class="h" style="color:#a8650f;background:#fdf0de">☀</span><div class="txt">week-3-juniors<small>You: Craft barn needs the paint table…</small></div></div>
+          <div class="pitem"><span class="h" style="color:#a8650f;background:#fdf0de">☀</span><div class="txt">cabin-leaders<small>Theo: Done. All cabins have swim buddies</small></div></div>
+        </div>
+        <div class="lock">Your summer access ends <b>Aug 30</b>. Channels you're in will be archived for the office.</div>
+        <div class="tabbar four"><span class="on"><i>⌂</i>Home</span><span><i>💬</i>Chat<span class="badge">1</span></span><span><i>✓</i>Tasks</span><span><i>❏</i>Knowledge</span></div>
+      </div></div>
+      <figcaption><b>Counsellor view</b>Four tabs and no parent email or bookings. Their access has an end date and expires on its own.</figcaption>
+    </figure>
+  </div>
+  <div class="notes">
+    <div class="note"><span class="num">1</span><b>Two kinds of app</b>Office staff keep every tool. Counsellors get chat, their tasks, Knowledge and People.</div>
+    <div class="note"><span class="num">2</span><b>Safeguarding</b>Under-18 CITs can't be direct-messaged one-on-one by adults. Messages can't be deleted, and directors can see every channel. All of these are settings.</div>
+    <div class="note"><span class="num">3</span><b>Season-end clean-up</b>Summer access expires on its own and session channels are archived, so retreat season starts clean with only year-round staff.</div>
+  </div>
+
+  <!-- ===================== 4. Director: team tasks ===================== -->
+  <h2>4 · Director: send tasks and see the whole team</h2>
+  <p class="lede">The director sends a task once, to one person or a whole role, and can make it repeat. Each repeat lands on the right people's task lists by itself. The Team tasks page shows, at a glance, what's done, what's late and who did it.</p>
+
+  <div class="frame">
+    <div class="chrome"><i></i><i></i><i></i><span class="url">camp.millstream.ca/team-tasks</span></div>
+    <div class="app with-panel" style="height:720px">
+      <aside class="side">
+        <div class="ws">
+          <svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="96" fill="#14586b"/><circle cx="100" cy="100" r="88" fill="none" stroke="#d98d2b" stroke-width="5"/><g fill="#3c7146"><path d="M100 50 L 76 104 H 124Z"/><path d="M70 72 L 52 108 H 88Z"/><path d="M130 72 L 112 108 H 148Z"/></g><path d="M48 124 Q 66 112 84 124 T 120 124 T 152 124" stroke="#fdfefd" stroke-width="8" fill="none" stroke-linecap="round"/><path d="M56 144 Q 74 132 92 144 T 128 144 T 146 144" stroke="#f3b97a" stroke-width="6" fill="none" stroke-linecap="round"/></svg>
+          <div><div class="name">Mill Stream</div><span class="chip summer">☀ Summer · Week 3</span></div>
+        </div>
+        <div class="scroll">
+          <nav class="nav">
+            <a><span class="ic">⌂</span>Home <span class="badge">5</span></a>
+            <div class="tools">
+              <a><span class="ic">✓</span>Tasks<span class="badge">7</span></a>
+              <a style="background:var(--teal);color:#fff"><span class="ic">▦</span>Team tasks<span class="badge">3</span></a>
+              <a><span class="ic">✉</span>Email<span class="badge">12</span></a>
+              <a><span class="ic">☀</span>Sessions</a>
+              <a><span class="ic">☺</span>People</a>
+              <a><span class="ic">❏</span>Knowledge</a>
+            </div>
+            <div class="sec">Channels <span class="plus">+</span></div>
+            <a class="unread"><span class="hash">#</span>all-staff <span class="badge">1</span></a>
+            <a><span class="hash">#</span>office</a>
+            <a><span class="hash">#</span>kitchen</a>
+            <div class="sec">Summer 2027 <span class="plus">+</span></div>
+            <a class="unread"><span class="hash">☀</span>week-3-juniors <span class="badge">3</span></a>
+            <a><span class="hash">☀</span>cabin-leaders</a>
+            <a><span class="hash">☀</span>program-team</a>
+          </nav>
+        </div>
+        <svg class="tree" viewBox="0 0 252 46" preserveAspectRatio="none"><path fill="#fff" d="M0 46 L0 30 L10 14 L20 30 L28 18 L38 6 L48 22 L56 12 L66 28 L76 10 L88 30 L98 16 L108 4 L118 24 L128 14 L140 30 L150 8 L162 28 L172 18 L182 32 L192 12 L204 26 L214 6 L226 30 L236 16 L252 28 L252 46Z"/></svg>
+        <div class="me"><span class="av" style="background:#d98d2b">AM</span><div><b style="color:#fff">Alex Morgan</b><br><span style="font-size:11px">Director</span></div></div>
+      </aside>
+
+      <section class="main">
+        <div class="chead">
+          <div><h3>Team tasks</h3><div class="sub">Tuesday, July 21 · everyone's tasks, live</div></div>
+          <div class="right"><span class="seg"><span class="on">Today</span><span>This week</span><span>Routines</span></span><span class="btn amber">＋ Send a task</span></div>
+        </div>
+        <div class="tt">
+          <div class="kpis">
+            <div class="kpi"><b>38<small>/52</small></b>done today<div class="bar"><i style="width:73%"></i></div></div>
+            <div class="kpi late"><b>3</b>overdue</div>
+            <div class="kpi"><b>11</b>still to do</div>
+            <div class="kpi"><b>9 / 12</b>cabins inspected</div>
+          </div>
+
+          <div class="card" style="margin-top:14px">
+            <h4>Routines due today <a>All routines →</a></h4>
+            <div class="rt">
+              <div class="rname"><b>Morning cabin inspection</b><small>↻ Daily 8:00 · All cabin leaders</small></div>
+              <div class="cells">
+                <span class="c ok" title="Cabin 1">1</span><span class="c ok">2</span><span class="c ok">3</span><span class="c ok">4</span><span class="c ok">5</span><span class="c ok">6</span><span class="c ok">7</span><span class="c ok">8</span><span class="c ok">9</span><span class="c late">10</span><span class="c late">11</span><span class="c todo">12</span>
+              </div>
+              <span class="pill warn">9 / 12</span>
+            </div>
+            <div class="rt">
+              <div class="rname"><b>Waterfront safety check</b><small>↻ Daily 9:30 · Maya Lin</small></div>
+              <div class="who-done"><span class="av" style="background:#2d7d8a;width:20px;height:20px;font-size:8.5px">ML</span>Done 9:22 · photo attached</div>
+              <span class="pill ok">Done</span>
+            </div>
+            <div class="rt">
+              <div class="rname"><b>Kitchen fridge temperatures</b><small>↻ Twice daily · Kitchen team</small></div>
+              <div class="who-done"><span class="av" style="background:#8a6a2d;width:20px;height:20px;font-size:8.5px">RB</span>7:05 done · 4:00 pm pending</div>
+              <span class="pill task">1 / 2</span>
+            </div>
+            <div class="rt">
+              <div class="rname"><b>Swim buddy list for tomorrow</b><small>↻ Daily 4:00 pm · Cabin leaders</small></div>
+              <div class="who-done" style="color:var(--muted)">Due later today</div>
+              <span class="pill" style="background:var(--soft);color:var(--muted)">0 / 12</span>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:14px">
+            <h4>By person <a>Everyone →</a></h4>
+            <div class="people">
+              <div class="pp"><span class="av" style="background:#b4532a">TK</span><div class="pn"><b>Theo Kim</b><small>Cabin 10 leader</small></div><div class="bar"><i style="width:50%"></i></div><span class="late-t">1 overdue</span></div>
+              <div class="pp"><span class="av" style="background:#2d7d8a">ML</span><div class="pn"><b>Maya Lin</b><small>Waterfront</small></div><div class="bar"><i style="width:100%"></i></div><span class="ok-t">All done</span></div>
+              <div class="pp"><span class="av" style="background:#5a6fa8">EN</span><div class="pn"><b>Ella Nguyen</b><small>Cabin 11 leader · CIT</small></div><div class="bar"><i style="width:40%"></i></div><span class="late-t">1 overdue</span></div>
+              <div class="pp"><span class="av" style="background:#7a5c9a">SO</span><div class="pn"><b>Sam Okafor</b><small>Maintenance</small></div><div class="bar"><i style="width:80%"></i></div><span>1 left</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="ph">Send a task <span>×</span></div>
+        <div class="pb">
+          <div class="field"><label>Task</label><div class="fake">Morning cabin inspection</div></div>
+          <div class="field"><label>Send to</label>
+            <div class="fake" style="display:flex;flex-wrap:wrap;gap:5px">
+              <span class="tag">☀ All cabin leaders · 12</span><span style="color:var(--muted)">＋ person or role</span>
+            </div>
+            <p class="hint">Each cabin leader gets their own copy for their cabin.</p>
+          </div>
+          <div class="field"><label>Repeats</label>
+            <div class="seg wide"><span>Once</span><span class="on">Daily</span><span>Weekly</span><span>Custom</span></div>
+          </div>
+          <div class="duo">
+            <div class="field"><label>Due by</label><div class="fake">8:00 am</div></div>
+            <div class="field"><label>Runs</label><div class="fake">Jul 5 – Aug 29</div></div>
+          </div>
+          <div class="field"><label>To finish, they</label>
+            <div class="fake"><span class="check done" style="vertical-align:-3px"></span> Tick a checklist (5 items)<br><span class="check" style="vertical-align:-3px"></span> Add a photo</div>
+          </div>
+          <div class="field"><label>If it's late</label><div class="fake">Remind them at 8:15, tell me at 9:00</div></div>
+          <span class="btn primary" style="width:100%;justify-content:center;padding:8px">Send to 12 people</span>
+          <p class="hint" style="text-align:center;margin-top:8px">Also posted in ☀ cabin-leaders</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <div class="notes">
+    <div class="note"><span class="num">1</span><b>Send once, it repeats by itself</b>Daily, weekly or custom routines appear on the right people's task lists each morning. Nobody has to remember to assign them.</div>
+    <div class="note"><span class="num">2</span><b>Send to a role, not a list of names</b>"All cabin leaders" means whoever has that role this week, so it keeps working when staff change between sessions.</div>
+    <div class="note"><span class="num">3</span><b>The director sees everything</b>Each cabin's inspection, who's behind, and proof such as a checklist or photo, all live, without asking anyone.</div>
+    <div class="note"><span class="num">4</span><b>Late tasks chase themselves</b>An automatic nudge to the person, then a heads-up to the director, so following up isn't anyone's job.</div>
+  </div>
+
+  <!-- ===================== 5. Phones: my tasks / team ===================== -->
+  <h2>5 · On the phone: my tasks and the team</h2>
+  <p class="lede">Staff open the app and their day is already there. The director can check the whole camp from a phone while walking the grounds.</p>
+  <div class="phones">
+    <figure class="phonewrap" style="margin:0">
+      <div class="phone"><div class="screen">
+        <div class="notch"></div>
+        <div class="status dark"><span>7:52</span><span>●●● ▮</span></div>
+        <div class="ptop"><div class="t">My tasks <span class="chip summer">Tue Jul 21</span></div>
+          <div class="mini"><div class="bar light"><i style="width:25%"></i></div><span>1 of 4 done</span></div></div>
+        <div class="plist">
+          <div class="sec">Routines</div>
+          <div class="tk"><span class="check"></span><div class="txt"><b>Morning cabin inspection</b><small><span class="rep">↻ Daily</span> Cabin 10 · due 8:00 · checklist</small></div></div>
+          <div class="tk"><span class="check"></span><div class="txt"><b>Swim buddy list for tomorrow</b><small><span class="rep">↻ Daily</span> due 4:00 pm</small></div></div>
+          <div class="tk done"><span class="check done"></span><div class="txt"><b>Wake-up and headcount</b><small><span class="rep">↻ Daily</span> done 7:15</small></div></div>
+          <div class="sec">From Alex</div>
+          <div class="tk"><span class="check"></span><div class="txt"><b>Bring cabin 10 to the craft barn at 3</b><small>Sent 8:58 · from ☀ week-3-juniors</small></div></div>
+        </div>
+        <div class="lock" style="background:#e3eef1;color:var(--teal)">Alex can see when you finish. Tick it off as you go.</div>
+        <div class="tabbar four"><span><i>⌂</i>Home</span><span><i>💬</i>Chat</span><span class="on"><i>✓</i>Tasks<span class="badge">3</span></span><span><i>❏</i>Knowledge</span></div>
+      </div></div>
+      <figcaption><b>Counsellor: my tasks</b>Routines appear every morning on their own, and anything the director sends sits under them.</figcaption>
+    </figure>
+
+    <figure class="phonewrap" style="margin:0">
+      <div class="phone"><div class="screen">
+        <div class="notch"></div>
+        <div class="status"><span>8:20</span><span>●●● ▮</span></div>
+        <div class="pchead"><span style="font-size:18px;color:var(--muted)">‹</span><div><b>Morning cabin inspection</b><small>Cabin 10 · Theo Kim · due 8:00</small></div></div>
+        <div class="plist" style="padding:8px 0">
+          <div class="tk"><span class="check done"></span><div class="txt">Beds made, floor clear</div></div>
+          <div class="tk"><span class="check done"></span><div class="txt">Cubbies tidy, wet towels hung out</div></div>
+          <div class="tk"><span class="check done"></span><div class="txt">Washroom checked</div></div>
+          <div class="tk"><span class="check"></span><div class="txt">Meds box locked</div></div>
+          <div class="tk"><span class="check"></span><div class="txt">Fire exit clear</div></div>
+          <div style="margin:10px 16px;border:1.5px dashed #cfc7b9;border-radius:12px;padding:14px;text-align:center;color:var(--muted);font-size:12.5px">📷 Add a photo (optional)</div>
+        </div>
+        <div style="padding:0 14px 26px"><span class="btn primary" style="width:100%;justify-content:center;padding:10px;opacity:.5">Mark done (3 of 5)</span></div>
+      </div></div>
+      <figcaption><b>Doing a routine</b>A short checklist, so "done" means the same thing for everyone.</figcaption>
+    </figure>
+
+    <figure class="phonewrap" style="margin:0">
+      <div class="phone"><div class="screen">
+        <div class="notch"></div>
+        <div class="status dark"><span>9:05</span><span>●●● ▮</span></div>
+        <div class="ptop"><div class="t">Team today <span style="font:600 20px Geist">＋</span></div>
+          <div class="mini"><div class="bar light"><i style="width:73%"></i></div><span>38 of 52 done · 3 late</span></div></div>
+        <div class="plist">
+          <div class="sec" style="color:var(--danger)">Overdue</div>
+          <div class="tk"><span class="av" style="background:#b4532a;width:28px;height:28px">TK</span><div class="txt"><b>Cabin 10 inspection</b><small>Theo Kim · 1h late · nudged 8:15</small></div><span class="nudge">Nudge</span></div>
+          <div class="tk"><span class="av" style="background:#5a6fa8;width:28px;height:28px">EN</span><div class="txt"><b>Cabin 11 inspection</b><small>Ella Nguyen · 1h late</small></div><span class="nudge">Nudge</span></div>
+          <div class="sec">Routines</div>
+          <div class="tk"><span class="h" style="width:28px;height:28px">↻</span><div class="txt"><b>Cabin inspections</b><small>9 of 12 cabins</small></div><span class="pill warn">9/12</span></div>
+          <div class="tk"><span class="h" style="width:28px;height:28px">↻</span><div class="txt"><b>Waterfront safety check</b><small>Maya · done 9:22 · photo</small></div><span class="pill ok">Done</span></div>
+          <div class="tk"><span class="h" style="width:28px;height:28px">↻</span><div class="txt"><b>Fridge temperatures</b><small>Kitchen · 1 of 2</small></div><span class="pill task">1/2</span></div>
+        </div>
+        <div class="tabbar"><span><i>⌂</i>Home</span><span><i>💬</i>Chat</span><span class="on"><i>▦</i>Team<span class="badge">3</span></span><span><i>✓</i>Tasks</span><span><i>≡</i>More</span></div>
+      </div></div>
+      <figcaption><b>Director: team today</b>What's late comes first, with a one-tap nudge. The ＋ sends a new task from anywhere.</figcaption>
+    </figure>
+  </div>
+  <div class="notes">
+    <div class="note"><span class="num">1</span><b>Nothing to set up each day</b>Routines are set once per season. Summer ones end on Aug 29; retreat-season ones (like "Lodge turnover after each group") take over in September.</div>
+    <div class="note"><span class="num">2</span><b>Simple for staff</b>Staff never need to visit Team tasks. They open My tasks, tick things off, and that's all.</div>
+    <div class="note"><span class="num">3</span><b>Quick for the director</b>Late items come first, nudging takes one tap, and new tasks can be sent from any screen, including from a chat message.</div>
+  </div>
+</div>
+</body>
+</html>
