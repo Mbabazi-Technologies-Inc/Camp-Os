@@ -9,11 +9,14 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".next-rename/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
     // The Expo shell has its own toolchain:
     "mobile/**",
+    // macOS sidecar files written on exFAT/FAT drives:
+    "**/._*",
   ]),
 ]);
 

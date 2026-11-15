@@ -1,13 +1,9 @@
+import type { Metadata } from "next";
 import { requireCamp } from "@/lib/auth";
+import { Settings2 as Settings2Icon } from "lucide-react";
 import { isGmailConfigured } from "@/lib/gmail";
 import { isCalendarConfigured } from "@/lib/calendar";
-import {
-  updateCampName,
-  inviteMember,
-  revokeInvite,
-  disconnectGmail,
-  disconnectCalendar,
-} from "./actions";
+import { updateCampName, inviteMember, revokeInvite, disconnectGmail, disconnectCalendar } from "./actions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -16,7 +12,11 @@ import { LinkButton } from "@/components/ui/Button";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { formatRelativeTime } from "@/lib/dates";
-import { Mail, UserPlus, CalendarDays } from "lucide-react";
+import { CalendarDays, CreditCard, LogOut, Mail, Tent, UserPlus, UserRound, Users } from "lucide-react";
+import { signOut } from "@/app/login/actions";
+import { brand } from "@/lib/brand";
+
+export const metadata: Metadata = { title: "Settings" };
 
 export const dynamic = "force-dynamic";
 
@@ -26,15 +26,10 @@ export default async function SettingsPage({
   searchParams: Promise<{ notice?: string; error?: string }>;
 }) {
   const { notice, error } = await searchParams;
-  const { supabase, campId, role, userId } = await requireCamp();
+  const { supabase, campId, role, userId, fullName, userEmail } = await requireCamp();
 
-  const [
-    { data: camp },
-    { data: members },
-    { data: invites },
-    { data: gmailAccount },
-    { data: calendarAccount },
-  ] = await Promise.all([
+  const [{ data: camp }, { data: members }, { data: invites }, { data: gmailAccount }, { data: calendarAccount }] =
+    await Promise.all([
       supabase.from("camps").select("name").eq("id", campId).maybeSingle(),
       supabase
         .from("profiles")
@@ -54,7 +49,7 @@ export default async function SettingsPage({
         .maybeSingle(),
       supabase
         .from("calendar_accounts")
-        .select("email, calendar_id, last_synced_at")
+        .select("email, last_synced_at")
         .eq("camp_id", campId)
         .maybeSingle(),
     ]);
@@ -65,7 +60,7 @@ export default async function SettingsPage({
 
   return (
     <div>
-      <PageHeader title="Settings" description="Your camp, your team, and connections." />
+      <PageHeader icon={Settings2Icon} eyebrow="Camp office" title="Settings" description="Your camp, your team, and connections." />
 
       {notice && (
         <p className="mb-4 rounded-lg bg-primary-soft text-primary text-sm px-3 py-2">{notice}</p>
@@ -74,8 +69,14 @@ export default async function SettingsPage({
         <p className="mb-4 rounded-lg bg-danger-soft text-danger text-sm px-3 py-2">{error}</p>
       )}
 
-      <section className="mb-6">
-        <h2 className="font-semibold text-foreground mb-2">Camp</h2>
+      <section className="grid gap-3 border-t border-border py-6 first-of-type:border-t-0 first-of-type:pt-0 md:grid-cols-[14rem_1fr] md:gap-8">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
+            <Tent size={17} className="text-forest" /> Camp
+          </h2>
+          <p className="mt-1 text-sm text-muted">The name staff see across the camp office and in drafted replies.</p>
+        </div>
+        <div className="min-w-0">
         <Card className="p-4">
           <form action={updateCampName} className="flex flex-col sm:flex-row gap-3 sm:items-end">
             <div className="flex-1">
@@ -94,10 +95,36 @@ export default async function SettingsPage({
             <p className="text-xs text-muted mt-2">Only directors can rename the camp.</p>
           )}
         </Card>
+        </div>
       </section>
 
-      <section className="mb-6">
-        <h2 className="font-semibold text-foreground mb-2">Gmail</h2>
+      {isDirector && (
+        <section className="grid gap-3 border-t border-border py-6 first-of-type:border-t-0 first-of-type:pt-0 md:grid-cols-[14rem_1fr] md:gap-8">
+          <div>
+            <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
+              <CreditCard size={17} className="text-forest" /> Billing
+            </h2>
+            <p className="mt-1 text-sm text-muted">Your {brand.name} plan, free trial and payment details.</p>
+          </div>
+          <div className="min-w-0">
+            <Card className="p-4 flex items-center justify-between gap-3">
+              <p className="text-sm text-foreground">Plan, free trial and payment details.</p>
+              <LinkButton href="/settings/billing" size="sm" variant="secondary">
+                Billing
+              </LinkButton>
+            </Card>
+          </div>
+        </section>
+      )}
+
+      <section className="grid gap-3 border-t border-border py-6 first-of-type:border-t-0 first-of-type:pt-0 md:grid-cols-[14rem_1fr] md:gap-8">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
+            <Mail size={17} className="text-forest" /> Gmail
+          </h2>
+          <p className="mt-1 text-sm text-muted">Pull your inbox in automatically. Approved replies are saved as Gmail drafts, never sent.</p>
+        </div>
+        <div className="min-w-0">
         <Card className="p-4">
           {gmailAccount ? (
             <div className="flex items-center justify-between gap-3">
@@ -127,7 +154,7 @@ export default async function SettingsPage({
                 approved replies straight into your Gmail drafts folder.
               </p>
               <p className="text-xs text-muted mt-1">
-                CampFlow only asks for read and draft permissions - it can never send email
+                {brand.name} only asks for read and draft permissions - it can never send email
                 on your behalf.
               </p>
               <div className="mt-3">
@@ -145,62 +172,80 @@ export default async function SettingsPage({
             </div>
           )}
         </Card>
+        </div>
       </section>
 
-      <section className="mb-6">
-        <h2 className="font-semibold text-foreground mb-2">Google Calendar</h2>
-        <Card className="p-4">
-          {calendarAccount ? (
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                  <CalendarDays size={15} className="text-primary" /> {calendarAccount.email}
-                </p>
-                <p className="text-xs text-muted mt-0.5">
-                  {calendarAccount.last_synced_at
-                    ? `Last updated ${formatRelativeTime(calendarAccount.last_synced_at)}`
-                    : "Connected - no bookings written yet"}
-                </p>
-              </div>
-              <form action={disconnectCalendar}>
-                <ConfirmButton
-                  confirmMessage="Disconnect Google Calendar? Events already on the calendar stay there, but new bookings won't be added."
-                  variant="secondary"
-                >
-                  Disconnect
-                </ConfirmButton>
-              </form>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm text-foreground">
-                Put the camp&apos;s retreat groups on your Google Calendar automatically, so
-                staff can see who is on site without opening this app.
-              </p>
-              <p className="text-xs text-muted mt-1">
-                Confirmed bookings with dates are added as all-day events; enquiries are
-                not, and cancelling a booking removes its event. CampFlow asks only for
-                calendar access - it can&apos;t read your mail from here.
-              </p>
-              <div className="mt-3">
-                {calendarConfigured ? (
-                  <LinkButton href="/api/calendar/connect" size="sm">
-                    <CalendarDays size={15} /> Connect Google Calendar
-                  </LinkButton>
-                ) : (
-                  <p className="text-xs rounded-lg bg-warning-soft text-warning px-3 py-2 inline-block">
-                    Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in the environment to
-                    enable this.
+      <section className="grid gap-3 border-t border-border py-6 first-of-type:border-t-0 first-of-type:pt-0 md:grid-cols-[14rem_1fr] md:gap-8">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
+            <CalendarDays size={17} className="text-forest" /> Google Calendar
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Confirmed retreat groups appear on the camp calendar, and Home shows what&apos;s coming up.
+          </p>
+        </div>
+        <div className="min-w-0">
+          <Card className="p-4">
+            {calendarAccount ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                    <CalendarDays size={15} className="text-primary" /> {calendarAccount.email}
                   </p>
+                  <p className="text-xs text-muted mt-0.5">
+                    {calendarAccount.last_synced_at
+                      ? `Last updated ${formatRelativeTime(calendarAccount.last_synced_at)}`
+                      : "Connected - no groups added yet"}
+                  </p>
+                </div>
+                {isDirector && (
+                  <form action={disconnectCalendar}>
+                    <ConfirmButton
+                      confirmMessage="Disconnect Google Calendar? Events already on it stay, but new bookings won't be added."
+                      variant="secondary"
+                    >
+                      Disconnect
+                    </ConfirmButton>
+                  </form>
                 )}
               </div>
-            </div>
-          )}
-        </Card>
+            ) : (
+              <div>
+                <p className="text-sm text-foreground">
+                  Put confirmed retreat groups on the camp&apos;s Google Calendar as all-day events, so
+                  everyone sees who&apos;s on site. Inquiries and tentative holds stay off it, and
+                  cancelling a group removes its event.
+                </p>
+                <p className="text-xs text-muted mt-1">
+                  This asks only for calendar access - not your email.
+                </p>
+                <div className="mt-3">
+                  {!calendarConfigured ? (
+                    <p className="text-xs rounded-lg bg-warning-soft text-warning px-3 py-2 inline-block">
+                      Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in the environment to enable this.
+                    </p>
+                  ) : isDirector ? (
+                    <LinkButton href="/api/calendar/connect" size="sm">
+                      <CalendarDays size={15} /> Connect Google Calendar
+                    </LinkButton>
+                  ) : (
+                    <p className="text-xs text-muted">Ask a director to connect the calendar.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
       </section>
 
-      <section>
-        <h2 className="font-semibold text-foreground mb-2">Team</h2>
+      <section className="grid gap-3 border-t border-border py-6 first-of-type:border-t-0 first-of-type:pt-0 md:grid-cols-[14rem_1fr] md:gap-8">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
+            <Users size={17} className="text-forest" /> Team
+          </h2>
+          <p className="mt-1 text-sm text-muted">Who can sign in to the camp office, and their role.</p>
+        </div>
+        <div className="min-w-0">
         <Card className="px-4 py-2 mb-3">
           <div className="divide-y divide-border">
             {(members ?? []).map((member) => (
@@ -241,7 +286,7 @@ export default async function SettingsPage({
               </SubmitButton>
             </form>
             <p className="text-xs text-muted mt-2">
-              When they create a CampFlow account with this email, they&apos;ll join your camp
+              When they create a {brand.name} account with this email, they&apos;ll join your camp
               automatically as staff.
             </p>
 
@@ -270,6 +315,26 @@ export default async function SettingsPage({
             )}
           </Card>
         )}
+        </div>
+      </section>
+
+      <section className="grid gap-3 border-t border-border py-6 md:grid-cols-[14rem_1fr] md:gap-8">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
+            <UserRound size={17} className="text-forest" /> Account
+          </h2>
+          <p className="mt-1 text-sm text-muted">Signed in to the camp office on this device.</p>
+        </div>
+        <div className="min-w-0">
+          <Card className="flex items-center justify-between gap-3 p-4">
+            <p className="min-w-0 truncate text-sm font-medium text-foreground">{userEmail ?? fullName ?? "Signed in"}</p>
+            <form action={signOut}>
+              <SubmitButton pendingText="Signing out..." variant="secondary">
+                <LogOut size={15} /> Sign out
+              </SubmitButton>
+            </form>
+          </Card>
+        </div>
       </section>
     </div>
   );

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireCamp } from "@/lib/auth";
+import { requireWritableCamp } from "@/lib/auth";
 import { exchangeCodeForTokens, getGmailAddress } from "@/lib/gmail";
+import { brand } from "@/lib/brand";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -17,15 +18,18 @@ export async function GET(request: NextRequest) {
     return fail("Gmail connection was cancelled or the request expired. Please try again.");
   }
 
+  // Outside the try: its redirects (signed out, read-only camp) must not be
+  // swallowed by the catch below.
+  const { supabase, campId, userId } = await requireWritableCamp();
+
   try {
-    const { supabase, campId, userId } = await requireCamp();
 
     const redirectUri = new URL("/api/gmail/callback", request.url).toString();
     const tokens = await exchangeCodeForTokens(code, redirectUri);
 
     if (!tokens.refresh_token) {
       return fail(
-        "Google didn't grant offline access. Remove CampFlow from your Google account permissions and try connecting again."
+        `Google didn't grant offline access. Remove ${brand.name} from your Google account permissions and try connecting again.`
       );
     }
 

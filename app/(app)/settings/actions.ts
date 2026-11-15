@@ -2,11 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireCamp } from "@/lib/auth";
+import { requireWritableCamp } from "@/lib/auth";
 import { field } from "@/lib/form";
+import { brand } from "@/lib/brand";
 
 export async function updateCampName(formData: FormData) {
-  const { supabase, campId, role } = await requireCamp();
+  const { supabase, campId, role } = await requireWritableCamp();
   if (role !== "director") return;
 
   const name = field(formData, "name").trim();
@@ -19,7 +20,7 @@ export async function updateCampName(formData: FormData) {
 }
 
 export async function inviteMember(formData: FormData) {
-  const { supabase, campId, userId, role } = await requireCamp();
+  const { supabase, campId, userId, role } = await requireWritableCamp();
   if (role !== "director") {
     redirect("/settings?error=" + encodeURIComponent("Only directors can invite teammates."));
   }
@@ -51,13 +52,13 @@ export async function inviteMember(formData: FormData) {
   redirect(
     "/settings?notice=" +
       encodeURIComponent(
-        `Invite created. When ${email} signs up for CampFlow with that email, they'll join your camp automatically.`
+        `Invite created. When ${email} signs up for ${brand.name} with that email, they'll join your camp automatically.`
       )
   );
 }
 
 export async function revokeInvite(id: string) {
-  const { supabase, campId, role } = await requireCamp();
+  const { supabase, campId, role } = await requireWritableCamp();
   if (role !== "director") return;
 
   await supabase
@@ -71,7 +72,7 @@ export async function revokeInvite(id: string) {
 }
 
 export async function disconnectGmail() {
-  const { supabase, campId } = await requireCamp();
+  const { supabase, campId } = await requireWritableCamp();
 
   await supabase.from("gmail_accounts").delete().eq("camp_id", campId);
 
@@ -81,16 +82,15 @@ export async function disconnectGmail() {
 }
 
 export async function disconnectCalendar() {
-  const { supabase, campId } = await requireCamp();
+  const { supabase, campId, role } = await requireWritableCamp();
+  if (role !== "director") {
+    redirect("/settings?error=" + encodeURIComponent("Only directors can disconnect the calendar."));
+  }
 
   await supabase.from("calendar_accounts").delete().eq("camp_id", campId);
-  // Forget the event ids so a future reconnect doesn't try to update events
-  // that belong to a calendar we can no longer reach.
-  await supabase
-    .from("bookings")
-    .update({ google_event_id: null })
-    .eq("camp_id", campId)
-    .not("google_event_id", "is", null);
+  // Forget the event ids so a later reconnect doesn't try to update events
+  // on a calendar we can no longer reach.
+  await supabase.from("retreat_groups").update({ google_event_id: null }).eq("camp_id", campId);
 
   revalidatePath("/settings");
   redirect("/settings?notice=" + encodeURIComponent("Google Calendar disconnected."));

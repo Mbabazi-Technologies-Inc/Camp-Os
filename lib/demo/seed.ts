@@ -1,48 +1,195 @@
+import { campISODate } from "@/lib/dates";
 // Sample Mill Stream data used when the app runs without a database, so the
 // whole product can be explored before any keys exist.
 
-import { getSeason } from "@/lib/season";
-
 function isoDate(offsetDays: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
+  return campISODate(offsetDays);
 }
 
 function isoTime(offsetMinutes: number): string {
   return new Date(Date.now() + offsetMinutes * 60_000).toISOString();
 }
 
-function seasonal<T>(summer: T, offSeason: T): T {
-  return CAMP_SEASON ? summer : offSeason;
+// The most recent summer camp season (July 5 to August 29).
+function summerYear(): number {
+  const now = new Date();
+  return now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+}
+function summerStart(): string {
+  return `${summerYear()}-07-05`;
+}
+function summerEnd(): string {
+  return `${summerYear()}-08-29`;
 }
 
-const SUMMER_PICKUP_DRAFT =
-  "Hi Jordan,\n\nThat's no problem at all - a 3pm pickup on Friday works. Please come to the camp office to sign Maya out, and allow about ten minutes for us to bring her up from her afternoon activity.\n\nOne small thing: we do need the request to come from the email address we have on file, which this is, so you're all set.\n\nSee you Friday,\nThe Camp Office\nMill Stream Bible Camp";
+function staffRow(
+  id: string,
+  firstName: string,
+  lastName: string,
+  role: string,
+  team: string,
+  extra: DemoRow = {}
+): DemoRow {
+  return {
+    id,
+    camp_id: DEMO_CAMP_ID,
+    first_name: firstName,
+    last_name: lastName,
+    role,
+    team,
+    email: null,
+    phone: null,
+    notes: null,
+    season: "year_round",
+    under_18: false,
+    access_ends: null,
+    profile_id: null,
+    status_emoji: null,
+    status_text: null,
+    status_date: null,
+    created_at: isoTime(-60 * 24 * 40),
+    updated_at: isoTime(-60 * 24 * 40),
+    ...extra,
+  };
+}
 
-const OFF_SEASON_RETREAT_DRAFT =
-  "Hi Jordan,\n\nThank you for thinking of Mill Stream. We do host groups through the winter, and a group of about 48 fits our lodge comfortably.\n\nI don't want to quote February dates or rates from memory, so let me check the booking calendar and send you the weekend package in writing - it will set out what is included for meals and rooms.\n\nWarmly,\nThe Camp Office\nMill Stream Bible Camp & Retreat Centre";
+function routineRow(id: string, title: string, extra: DemoRow): DemoRow {
+  return {
+    id,
+    camp_id: DEMO_CAMP_ID,
+    created_by: DEMO_USER_ID,
+    title,
+    description: null,
+    target_staff_id: null,
+    target_team: null,
+    frequency: "daily",
+    weekdays: null,
+    due_time: null,
+    starts_on: isoDate(-30),
+    ends_on: null,
+    priority: "medium",
+    active: true,
+    created_at: isoTime(-60 * 24 * 30),
+    updated_at: isoTime(-60 * 24 * 30),
+    ...extra,
+  };
+}
+
+// Today's routine copies, some already ticked off, plus one from yesterday
+// that slipped, so the Team view has something to show.
+const WALKTHROUGH_STEPS = [
+  "Lodge doors and windows locked overnight",
+  "Heat on in occupied buildings",
+  "Washrooms stocked",
+  "Paths and stairs clear",
+  "Anything broken logged as a task",
+];
+
+// Same naming as lib/chat directChannelName (not imported, to avoid a cycle).
+function directName(a: string, b: string): string {
+  return `dm-${[a, b].sort().join("-")}`;
+}
+
+// A status that only lasts for today.
+function statusToday(emoji: string, text: string): DemoRow {
+  return { status_emoji: emoji, status_text: text, status_date: isoDate(0) };
+}
+
+function channelRow(id: string, name: string, kind: string, description: string | null, groupId: string | null = null): DemoRow {
+  return {
+    id,
+    camp_id: DEMO_CAMP_ID,
+    name,
+    kind,
+    description,
+    retreat_group_id: groupId,
+    members: null,
+    pinned_message_id: null,
+    archived: false,
+    created_by: DEMO_USER_ID,
+    created_at: isoTime(-60 * 24 * 60),
+  };
+}
+
+// The demo login a staff member gets in "view as" (see ensureDemoStaffLogin).
+function staffUser(staffId: string): string {
+  return `demo-user-${staffId}`;
+}
+
+let messageCount = 0;
+function msg(
+  channelId: string,
+  authorId: string | null,
+  authorName: string,
+  body: string,
+  offsetMinutes: number,
+  kind: "user" | "system" | "announcement" = "user",
+  parentId: string | null = null
+): DemoRow {
+  messageCount += 1;
+  return {
+    id: `demo-msg-${messageCount}`,
+    camp_id: DEMO_CAMP_ID,
+    channel_id: channelId,
+    author_id: authorId,
+    author_name: authorName,
+    kind,
+    body,
+    task_id: null,
+    parent_id: parentId,
+    created_at: isoTime(offsetMinutes),
+  };
+}
+
+function isWeekday(dayOffset: number): boolean {
+  const day = new Date(isoDate(dayOffset) + "T00:00:00").getDay();
+  return day >= 1 && day <= 5;
+}
+
+function routineTask(routineId: string, title: string, staffId: string, dayOffset: number, dueTime: string, done: boolean): DemoRow {
+  return {
+    id: `demo-rtask-${routineId}-${staffId}-${dayOffset}`,
+    camp_id: DEMO_CAMP_ID,
+    created_by: DEMO_USER_ID,
+    title,
+    description: null,
+    due_date: isoDate(dayOffset),
+    due_time: dueTime,
+    priority: "medium",
+    status: done ? "done" : "open",
+    source_email_id: null,
+    assigned_to: staffId,
+    routine_id: routineId,
+    completed_at: done ? isoTime(dayOffset * 24 * 60 - 60) : null,
+    checklist:
+      routineId === "demo-routine-1"
+        ? WALKTHROUGH_STEPS.map((label, i) => ({ label, done: done || i < 2 }))
+        : null,
+    created_at: isoTime(dayOffset * 24 * 60 - 600),
+    updated_at: isoTime(dayOffset * 24 * 60 - 60),
+  };
+}
 
 export const DEMO_USER_ID = "demo-user-0001";
 export const DEMO_CAMP_ID = "demo-camp-0001";
+export const DEMO_CAMP_NAME = "Mill Stream Bible Camp";
 export const DEMO_EMAIL = "director@millstream.camp";
 export const DEMO_FULL_NAME = "Alex Rivera";
 
 export type DemoRow = Record<string, unknown>;
-
-// The sample data follows the calendar: during the summer sessions the office
-// is handling campers, and the rest of the year it is handling retreat
-// bookings, registration and hiring.
-const CAMP_SEASON = getSeason().isCampSeason;
 
 export function buildSeed(): Record<string, DemoRow[]> {
   return {
     camps: [
       {
         id: DEMO_CAMP_ID,
-        name: "Mill Stream Bible Camp",
+        name: DEMO_CAMP_NAME,
         owner_id: DEMO_USER_ID,
         created_at: isoTime(-60 * 24 * 30),
+        subscription_status: "trialing",
+        trial_ends_at: isoTime(60 * 24 * 14),
+        stripe_customer_id: null,
+        stripe_subscription_id: null,
       },
     ],
 
@@ -80,10 +227,7 @@ export function buildSeed(): Record<string, DemoRow[]> {
         id: "demo-task-1",
         camp_id: DEMO_CAMP_ID,
         created_by: DEMO_USER_ID,
-        title: seasonal(
-          "Call the Parkers back about Friday pickup",
-          "Call the Parkers back about next summer's registration"
-        ),
+        title: "Call the Parkers back about Friday pickup",
         description: "They left a voicemail during rest hour.",
         due_date: isoDate(0),
         priority: "high",
@@ -96,10 +240,7 @@ export function buildSeed(): Record<string, DemoRow[]> {
         id: "demo-task-2",
         camp_id: DEMO_CAMP_ID,
         created_by: DEMO_USER_ID,
-        title: seasonal(
-          "Restock sunscreen at the waterfront shed",
-          "Winterize the waterfront pump before the first freeze"
-        ),
+        title: "Restock sunscreen at the waterfront shed",
         description: null,
         due_date: isoDate(-2),
         priority: "medium",
@@ -112,10 +253,7 @@ export function buildSeed(): Record<string, DemoRow[]> {
         id: "demo-task-3",
         camp_id: DEMO_CAMP_ID,
         created_by: DEMO_USER_ID,
-        title: seasonal(
-          "Confirm Saturday campfire speaker",
-          "Confirm AV setup for the Grace Fellowship retreat"
-        ),
+        title: "Confirm Saturday campfire speaker",
         description: "Pastor Nate - confirm arrival time and sound setup.",
         due_date: isoDate(0),
         priority: "medium",
@@ -128,10 +266,7 @@ export function buildSeed(): Record<string, DemoRow[]> {
         id: "demo-task-4",
         camp_id: DEMO_CAMP_ID,
         created_by: DEMO_USER_ID,
-        title: seasonal(
-          "Send week 3 photos to the parent mailing list",
-          "Publish next summer's session dates and open registration"
-        ),
+        title: "Send week 3 photos to the parent mailing list",
         description: null,
         due_date: isoDate(2),
         priority: "low",
@@ -144,14 +279,8 @@ export function buildSeed(): Record<string, DemoRow[]> {
         id: "demo-task-5",
         camp_id: DEMO_CAMP_ID,
         created_by: DEMO_USER_ID,
-        title: seasonal(
-          "Check the med form for Maya P. arrived",
-          "Chase the deposit for the homeschool co-op booking"
-        ),
-        description: seasonal(
-          "Nurse flagged it as missing at check-in.",
-          "Beth said the board approves funds this week."
-        ),
+        title: "Check the med form for Maya P. arrived",
+        description: "Nurse flagged it as missing at check-in.",
         due_date: isoDate(1),
         priority: "high",
         status: "open",
@@ -171,6 +300,33 @@ export function buildSeed(): Record<string, DemoRow[]> {
         source_email_id: null,
         created_at: isoTime(-60 * 24 * 5),
         updated_at: isoTime(-60 * 24 * 3),
+      },
+      // Routine copies that came due (see routineTask above).
+      routineTask("demo-routine-2", "Log fridge and freezer temperatures", "demo-staff-7", 0, "07:30", true),
+      routineTask("demo-routine-1", "Morning walkthrough: lodge, cabins and grounds", "demo-staff-6", 0, "08:30", true),
+      routineTask("demo-routine-2", "Log fridge and freezer temperatures", "demo-staff-7", -1, "07:30", true),
+      routineTask("demo-routine-1", "Morning walkthrough: lodge, cabins and grounds", "demo-staff-6", -1, "08:30", false),
+      ...(isWeekday(0)
+        ? [routineTask("demo-routine-3", "Reply to new retreat inquiries", "demo-staff-1", 0, "11:00", true)]
+        : []),
+      // Sent by the director to one person.
+      {
+        id: "demo-task-sent-1",
+        camp_id: DEMO_CAMP_ID,
+        created_by: DEMO_USER_ID,
+        title: "Send Lakeview School their final invoice",
+        description: "62 people, 2 nights. Use the school rate.",
+        due_date: isoDate(0),
+        due_time: "15:00",
+        priority: "high",
+        status: "open",
+        source_email_id: null,
+        assigned_to: "demo-staff-5",
+        routine_id: null,
+        retreat_group_id: "demo-group-2",
+        completed_at: null,
+        created_at: isoTime(-120),
+        updated_at: isoTime(-120),
       },
     ],
 
@@ -224,36 +380,6 @@ export function buildSeed(): Record<string, DemoRow[]> {
           "Cancellations more than two weeks before a session receive a full refund less the fifty dollar deposit. Within two weeks, half the fee is refunded. After a session begins we do not refund, though documented medical withdrawals are credited toward a future session.",
         created_at: isoTime(-60 * 24 * 14),
         updated_at: isoTime(-60 * 24 * 14),
-      },
-      {
-        id: "demo-kb-7",
-        camp_id: DEMO_CAMP_ID,
-        category: "retreat",
-        title: "Retreat and group bookings",
-        content:
-          "We host groups of 20 to 110 year-round outside the summer sessions. A weekend booking runs Friday evening to Sunday afternoon and includes accommodation, all meals, and use of the lodge, chapel and grounds. To hold dates we need a signed agreement and a 25 percent deposit. Email the office with your dates, approximate numbers and any meal requirements.",
-        created_at: isoTime(-60 * 24 * 24),
-        updated_at: isoTime(-60 * 24 * 24),
-      },
-      {
-        id: "demo-kb-8",
-        camp_id: DEMO_CAMP_ID,
-        category: "retreat",
-        title: "Off-season office hours",
-        content:
-          "Between September and May the office is staffed Tuesday to Friday, 9 AM to 3 PM. Email is the most reliable way to reach us and we reply within two business days. During the summer sessions the office is open daily.",
-        created_at: isoTime(-60 * 24 * 23),
-        updated_at: isoTime(-60 * 24 * 23),
-      },
-      {
-        id: "demo-kb-9",
-        camp_id: DEMO_CAMP_ID,
-        category: "policy",
-        title: "Summer registration dates",
-        content:
-          "Registration for next summer opens the first Monday of February. Returning families get one week of priority registration before it opens to everyone. Sessions usually fill within three weeks; after that we keep a waitlist and contact families as spots open.",
-        created_at: isoTime(-60 * 24 * 22),
-        updated_at: isoTime(-60 * 24 * 22),
       },
       {
         id: "demo-kb-6",
@@ -369,83 +495,278 @@ export function buildSeed(): Record<string, DemoRow[]> {
       },
     ],
 
-    staff: [
+    retreat_groups: [
       {
-        id: "demo-staff-1",
+        id: "demo-group-1",
         camp_id: DEMO_CAMP_ID,
-        first_name: "Dana",
-        last_name: "Brooks",
-        role: "Program Director",
-        email: "dana@millstream.camp",
-        phone: "705-555-0110",
-        notes: null,
-        created_at: isoTime(-60 * 24 * 40),
-        updated_at: isoTime(-60 * 24 * 40),
-      },
-      {
-        id: "demo-staff-2",
-        camp_id: DEMO_CAMP_ID,
-        first_name: "Priya",
-        last_name: "Raman",
-        role: "Camp Nurse",
-        email: "nurse@millstream.camp",
-        phone: "705-555-0111",
-        notes: "On site Sunday evening through Friday.",
-        created_at: isoTime(-60 * 24 * 38),
-        updated_at: isoTime(-60 * 24 * 38),
-      },
-      {
-        id: "demo-staff-3",
-        camp_id: DEMO_CAMP_ID,
-        first_name: "Tomas",
-        last_name: "Vega",
-        role: "Waterfront Lead",
-        email: null,
-        phone: "705-555-0124",
-        notes: "Lifeguard certification renews in March.",
-        created_at: isoTime(-60 * 24 * 35),
-        updated_at: isoTime(-60 * 24 * 35),
-      },
-      {
-        id: "demo-staff-4",
-        camp_id: DEMO_CAMP_ID,
-        first_name: "Hannah",
-        last_name: "Lindgren",
-        role: "Cabin 4 Counsellor",
-        email: null,
-        phone: null,
-        notes: null,
+        name: "Grace Fellowship youth retreat",
+        contact_name: "Marcus Lee",
+        contact_email: "marcus@gracefellowship.example.com",
+        contact_phone: "705-555-0140",
+        arrival_date: isoDate(4),
+        departure_date: isoDate(6),
+        headcount: 48,
+        status: "confirmed",
+        notes: "Arriving by bus Friday around 6pm. Two vegetarian meals.",
         created_at: isoTime(-60 * 24 * 30),
         updated_at: isoTime(-60 * 24 * 30),
       },
+      {
+        id: "demo-group-2",
+        camp_id: DEMO_CAMP_ID,
+        name: "Lakeview Public School - Grade 6",
+        contact_name: "Hannah Cho",
+        contact_email: "hcho@lakeview.example.com",
+        contact_phone: "705-555-0141",
+        arrival_date: isoDate(11),
+        departure_date: isoDate(13),
+        headcount: 64,
+        status: "confirmed",
+        notes: "Outdoor education trip; teachers bringing their own program.",
+        created_at: isoTime(-60 * 24 * 21),
+        updated_at: isoTime(-60 * 24 * 21),
+      },
+      {
+        id: "demo-group-3",
+        camp_id: DEMO_CAMP_ID,
+        name: "Morrison family reunion",
+        contact_name: "Ruth Morrison",
+        contact_email: "ruth.morrison@example.com",
+        contact_phone: "705-555-0142",
+        arrival_date: isoDate(25),
+        departure_date: isoDate(27),
+        headcount: 35,
+        status: "tentative",
+        notes: "Waiting on final numbers by the end of the month.",
+        created_at: isoTime(-60 * 24 * 9),
+        updated_at: isoTime(-60 * 24 * 9),
+      },
+      {
+        id: "demo-group-4",
+        camp_id: DEMO_CAMP_ID,
+        name: "Kawartha churches leaders' weekend",
+        contact_name: "Pastor Ben Adeyemi",
+        contact_email: "ben@kawarthachurches.example.com",
+        contact_phone: "705-555-0143",
+        arrival_date: isoDate(46),
+        departure_date: isoDate(48),
+        headcount: 90,
+        status: "inquiry",
+        notes: "Asked about meeting space for 90 and a quote.",
+        created_at: isoTime(-60 * 24 * 2),
+        updated_at: isoTime(-60 * 24 * 2),
+      },
+      {
+        id: "demo-group-5",
+        camp_id: DEMO_CAMP_ID,
+        name: "St. Andrew's men's retreat",
+        contact_name: "Tom Walsh",
+        contact_email: "tom.walsh@example.com",
+        contact_phone: "705-555-0144",
+        arrival_date: isoDate(-12),
+        departure_date: isoDate(-10),
+        headcount: 28,
+        status: "confirmed",
+        notes: null,
+        created_at: isoTime(-60 * 24 * 60),
+        updated_at: isoTime(-60 * 24 * 60),
+      },
     ],
+
+    staff: [
+      // Year-round team: they're the only ones in the app from September to June.
+      staffRow("demo-staff-0", "Alex", "Rivera", "Director", "Office", {
+        email: DEMO_EMAIL,
+        profile_id: DEMO_USER_ID,
+      }),
+      staffRow("demo-staff-1", "Dana", "Brooks", "Program Director", "Office", {
+        email: "dana@millstream.camp",
+        phone: "705-555-0110",
+        ...statusToday("🌙", "Off today"),
+      }),
+      staffRow("demo-staff-5", "Jordan", "Reyes", "Retreat Coordinator", "Office", {
+        email: "jordan@millstream.camp",
+        phone: "705-555-0131",
+      }),
+      staffRow("demo-staff-6", "Sam", "Okafor", "Facilities Manager", "Maintenance", {
+        phone: "705-555-0142",
+        ...statusToday("🔧", "Fixing the lodge furnace"),
+      }),
+      staffRow("demo-staff-7", "Rosa", "Bell", "Kitchen Lead", "Kitchen", {
+        email: "kitchen@millstream.camp",
+        notes: "Needs final headcounts 48 hours before each retreat.",
+      }),
+      // Summer staff: their access ended with the season, so routines skip them.
+      staffRow("demo-staff-2", "Priya", "Raman", "Camp Nurse", "Health", {
+        email: "nurse@millstream.camp",
+        phone: "705-555-0111",
+        notes: "On site Sunday evening through Friday.",
+        season: "summer",
+        access_ends: summerEnd(),
+      }),
+      staffRow("demo-staff-3", "Tomas", "Vega", "Waterfront Lead", "Waterfront", {
+        phone: "705-555-0124",
+        notes: "Lifeguard certification renews in March.",
+        season: "summer",
+        access_ends: summerEnd(),
+      }),
+      staffRow("demo-staff-4", "Hannah", "Lindgren", "Cabin 4 Counsellor", "Cabin leaders", {
+        season: "summer",
+        access_ends: summerEnd(),
+      }),
+      staffRow("demo-staff-8", "Eli", "Nguyen", "Counsellor in training", "Cabin leaders", {
+        season: "summer",
+        under_18: true,
+        access_ends: summerEnd(),
+      }),
+    ],
+
+    channels: [
+      channelRow("demo-chan-all", "all-staff", "standing", "Announcements for everyone on staff."),
+      channelRow("demo-chan-office", "office", "standing", "Day-to-day office chat for the year-round team."),
+      channelRow("demo-chan-maintenance", "maintenance", "standing", "Repairs, grounds and anything broken."),
+      channelRow("demo-chan-kitchen", "kitchen", "standing", "Menus, headcounts and dietary needs."),
+      {
+        ...channelRow("demo-chan-grace", "grace-fellowship", "retreat_group", "Everything about Grace Fellowship youth retreat.", "demo-group-1"),
+        pinned_message_id: "demo-msg-pin",
+      },
+      channelRow("demo-chan-lakeview", "lakeview-grade-6", "retreat_group", "Everything about Lakeview Public School - Grade 6.", "demo-group-2"),
+      {
+        ...channelRow("demo-chan-dm-jordan", directName(DEMO_USER_ID, staffUser("demo-staff-5")), "direct", null),
+        members: [DEMO_USER_ID, staffUser("demo-staff-5")],
+      },
+    ],
+
+    messages: [
+      // #grace-fellowship, the mockup's conversation
+      msg("demo-chan-grace", null, "Camp office", "Grace Fellowship youth retreat is confirmed for 42 people. This channel is for everything about their stay.", -60 * 50, "system"),
+      msg("demo-chan-grace", null, "Camp office", "Headcount changed from 42 to 48 by Jordan Reyes. Kitchen has been told.", -60 * 26, "system"),
+      msg("demo-chan-grace", staffUser("demo-staff-5"), "Jordan Reyes", "Marcus (their leader) called. Two more with nut allergies, so six dietary needs now. I've updated the booking notes.", -60 * 25),
+      msg("demo-chan-grace", staffUser("demo-staff-7"), "Rosa Bell", "Got it. I'll do a separate nut-free prep table for the weekend.", -60 * 24),
+      msg("demo-chan-grace", staffUser("demo-staff-6"), "Sam Okafor", "The cabin 4 door is sticking again. I'll sort it before Friday.", -60 * 3),
+      msg("demo-chan-grace", DEMO_USER_ID, "Alex Rivera", "Marcus asked about a late checkout Sunday (2pm instead of noon). I'm fine with it if the kitchen can do a later lunch. @Rosa Bell?", -60 * 2),
+      msg("demo-chan-grace", staffUser("demo-staff-7"), "Rosa Bell", "Later lunch works. I'll push it to 1pm.", -50),
+
+      // #office
+      msg("demo-chan-office", staffUser("demo-staff-1"), "Dana Brooks", "Morning! Spring program brochure draft is in the shared drive for comments.", -60 * 30),
+      msg("demo-chan-office", staffUser("demo-staff-5"), "Jordan Reyes", "Two new retreat inquiries came in overnight, a church youth group for March and a family reunion in May. On it.", -60 * 4),
+      msg("demo-chan-office", staffUser("demo-staff-1"), "Dana Brooks", "@Alex Rivera can you sign off the winter rates before Friday?", -40),
+
+      // #maintenance
+      msg("demo-chan-maintenance", staffUser("demo-staff-6"), "Sam Okafor", "Furnace service booked for the lodge on the 18th, between groups.", -60 * 20),
+
+      // #lakeview-grade-6
+      msg("demo-chan-lakeview", null, "Camp office", "Lakeview Public School - Grade 6 is confirmed for 64 people. This channel is for everything about their stay.", -60 * 24 * 6, "system"),
+      msg("demo-chan-lakeview", staffUser("demo-staff-5"), "Jordan Reyes", "Teachers want the night hike on Saturday. I'll check the forecast closer to the date.", -60 * 9),
+
+      // Replies in a thread under Alex's checkout question (demo-msg-6)
+      msg("demo-chan-grace", staffUser("demo-staff-5"), "Jordan Reyes", "Marcus says 2pm would really help, their bus can't come earlier.", -60 * 2 + 10, "user", "demo-msg-6"),
+      msg("demo-chan-grace", staffUser("demo-staff-6"), "Sam Okafor", "Fine by me, I'll start the lodge turnover after 2.", -60 * 2 + 20, "user", "demo-msg-6"),
+
+      // A direct message
+      msg("demo-chan-dm-jordan", staffUser("demo-staff-5"), "Jordan Reyes", "Quick one: can I take Friday afternoon off? The Lakeview invoice will be sent before I go.", -35),
+
+      // An announcement everyone is asked to confirm.
+      {
+        ...msg(
+          "demo-chan-all",
+          DEMO_USER_ID,
+          "Alex Rivera",
+          "Fire drill Thursday at 10am. Everyone meets at the flagpole; groups on site will join us. Please read the updated evacuation map in Knowledge before then.",
+          -60 * 5,
+          "announcement"
+        ),
+        id: "demo-msg-announce",
+      },
+
+      // Pinned in #grace-fellowship (listed last so the numbered ids above don't shift).
+      {
+        ...msg(
+          "demo-chan-grace",
+          staffUser("demo-staff-5"),
+          "Jordan Reyes",
+          "Weekend plan: arrive Fri 6pm (dinner 6:30) · campfire Sat 8pm · checkout Sun 2pm · leader Marcus Lee 705-555-0188",
+          -60 * 48
+        ),
+        id: "demo-msg-pin",
+      },
+    ],
+
+    // Quick acknowledgements instead of "ok" messages.
+    message_reactions: [
+      { message_id: "demo-msg-announce", user_id: staffUser("demo-staff-6"), user_name: "Sam Okafor", emoji: "ack", created_at: isoTime(-60 * 4) },
+      { message_id: "demo-msg-announce", user_id: staffUser("demo-staff-7"), user_name: "Rosa Bell", emoji: "ack", created_at: isoTime(-60 * 3) },
+      { message_id: "demo-msg-4", user_id: DEMO_USER_ID, user_name: DEMO_FULL_NAME, emoji: "👍", created_at: isoTime(-60 * 23) },
+      { message_id: "demo-msg-4", user_id: staffUser("demo-staff-5"), user_name: "Jordan Reyes", emoji: "👍", created_at: isoTime(-60 * 23) },
+      { message_id: "demo-msg-7", user_id: DEMO_USER_ID, user_name: DEMO_FULL_NAME, emoji: "✅", created_at: isoTime(-45) },
+      { message_id: "demo-msg-9", user_id: DEMO_USER_ID, user_name: DEMO_FULL_NAME, emoji: "👀", created_at: isoTime(-60 * 3) },
+    ],
+
+    // Alex has read everything up to an hour ago, so the newest messages show as unread.
+    channel_reads: ["demo-chan-office", "demo-chan-maintenance", "demo-chan-kitchen", "demo-chan-grace", "demo-chan-lakeview"].map(
+      (channel_id) => ({ channel_id, user_id: DEMO_USER_ID, last_read_at: isoTime(-60 * 2 - 5) })
+    ),
+
+    routines: [
+      routineRow("demo-routine-1", "Morning walkthrough: lodge, cabins and grounds", {
+        target_type: "team",
+        target_team: "Maintenance",
+        due_time: "08:30",
+        description: "Doors, heat, lights and anything a group would notice first.",
+        checklist: WALKTHROUGH_STEPS,
+      }),
+      routineRow("demo-routine-2", "Log fridge and freezer temperatures", {
+        target_type: "team",
+        target_team: "Kitchen",
+        due_time: "07:30",
+        priority: "high",
+      }),
+      routineRow("demo-routine-3", "Reply to new retreat inquiries", {
+        target_type: "team",
+        target_team: "Office",
+        frequency: "weekly",
+        weekdays: [1, 2, 3, 4, 5],
+        due_time: "11:00",
+      }),
+      routineRow("demo-routine-4", "Test fire alarms and check extinguishers", {
+        target_type: "person",
+        target_staff_id: "demo-staff-6",
+        frequency: "weekly",
+        weekdays: [1],
+        due_time: "10:00",
+        priority: "high",
+      }),
+      // A summer routine: set up once, it only runs between these dates.
+      routineRow("demo-routine-5", "Morning cabin inspection", {
+        target_type: "team",
+        target_team: "Cabin leaders",
+        due_time: "08:00",
+        starts_on: summerStart(),
+        ends_on: summerEnd(),
+      }),
+    ],
+
 
     email_drafts: [
       {
         id: "demo-email-1",
         camp_id: DEMO_CAMP_ID,
-        original_email: seasonal(
+        original_email:
           "Hi there,\n\nMaya has a dentist appointment on Friday afternoon that we couldn't move. Would it be alright if I picked her up at 3pm instead of the usual time? I can come to the office if that's easier.\n\nThanks so much,\nJordan Parker",
-          "Hi there,\n\nOur church is looking for somewhere to hold a youth weekend in February - roughly 40 students plus 8 leaders. Do you still have dates open, and what does the weekend rate include for meals?\n\nThanks so much,\nJordan Parker"
-        ),
         sender_name: "Jordan Parker",
         sender_email: "jordan.parker@example.com",
-        subject: seasonal("Early pickup Friday?", "February youth weekend - availability?"),
+        subject: "Early pickup Friday?",
         source: "manual",
         gmail_message_id: null,
         gmail_thread_id: null,
-        category: seasonal("pickup", "retreat"),
-        urgency: seasonal("high", "medium"),
-        ai_summary: seasonal(
-          "Asking to pick Maya up at 3pm this Friday for a dentist appointment.",
-          "Asking about February availability and weekend rates for a 48-person youth retreat."
-        ),
-        ai_draft: seasonal(SUMMER_PICKUP_DRAFT, OFF_SEASON_RETREAT_DRAFT),
-        edited_draft: seasonal(SUMMER_PICKUP_DRAFT, OFF_SEASON_RETREAT_DRAFT),
-        suggested_task_title: seasonal(
-          "Tell Cabin 4 about Maya's 3pm Friday pickup",
-          "Send Jordan Parker the February retreat dates and rate sheet"
-        ),
+        category: "pickup",
+        urgency: "high",
+        ai_summary: "Asking to pick Maya up at 3pm this Friday for a dentist appointment.",
+        ai_draft:
+          "Hi Jordan,\n\nThat's no problem at all - a 3pm pickup on Friday works. Please come to the camp office to sign Maya out, and allow about ten minutes for us to bring her up from her afternoon activity.\n\nOne small thing: we do need the request to come from the email address we have on file, which this is, so you're all set.\n\nSee you Friday,\nThe Camp Office\nMill Stream Bible Camp",
+        edited_draft:
+          "Hi Jordan,\n\nThat's no problem at all - a 3pm pickup on Friday works. Please come to the camp office to sign Maya out, and allow about ten minutes for us to bring her up from her afternoon activity.\n\nOne small thing: we do need the request to come from the email address we have on file, which this is, so you're all set.\n\nSee you Friday,\nThe Camp Office\nMill Stream Bible Camp",
+        suggested_task_title: "Tell Cabin 4 about Maya's 3pm Friday pickup",
         suggested_task_due: isoDate(3),
         suggested_task_accepted: false,
         status: "pending",
@@ -455,22 +776,17 @@ export function buildSeed(): Record<string, DemoRow[]> {
       {
         id: "demo-email-2",
         camp_id: DEMO_CAMP_ID,
-        original_email: seasonal(
+        original_email:
           "Hello,\n\nCould you send along the packing list for the overnight trip next week? I want to make sure Eli has everything, especially if it's going to be cold at night.\n\nThank you,\nSam",
-          "Hello,\n\nWhen does registration open for next summer, and do returning families get first pick of weeks? Eli would like the same week as last year if possible.\n\nThank you,\nSam"
-        ),
         sender_name: "Sam Whitfield",
         sender_email: "sam.whitfield@example.com",
-        subject: seasonal("Packing list for the overnight", "Next summer registration"),
+        subject: "Packing list for the overnight",
         source: "manual",
         gmail_message_id: null,
         gmail_thread_id: null,
-        category: seasonal("logistics", "registration"),
+        category: "logistics",
         urgency: "low",
-        ai_summary: seasonal(
-          "Wants the overnight trip packing list for Eli.",
-          "Asking when next summer's registration opens and whether returning families get priority."
-        ),
+        ai_summary: "Wants the overnight trip packing list for Eli.",
         ai_draft:
           "Hi Sam,\n\nHappy to help. For the overnight trip Eli will need a sleeping bag, pillow, flashlight, toiletries, two changes of clothes, a warm layer for the evening, a rain jacket, and closed-toe shoes.\n\nIf Eli takes any medication, please hand it to our camp nurse in its original container rather than packing it. And we do ask that electronics stay home - labelling everything with his name saves a lot of lost-and-found.\n\nWarmly,\nThe Camp Office\nMill Stream Bible Camp",
         edited_draft:
@@ -534,71 +850,6 @@ export function buildSeed(): Record<string, DemoRow[]> {
       },
     ],
 
-    bookings: [
-      {
-        id: "demo-booking-1",
-        camp_id: DEMO_CAMP_ID,
-        group_name: "Grace Fellowship youth retreat",
-        contact_name: "Pastor Nate Olusola",
-        contact_email: "nate@gracefellowship.example.com",
-        contact_phone: "705-555-0190",
-        start_date: isoDate(16),
-        end_date: isoDate(18),
-        headcount: 48,
-        status: "confirmed",
-        notes: "Needs the lodge AV system and two gluten-free meal plans.",
-        created_at: isoTime(-60 * 24 * 26),
-        updated_at: isoTime(-60 * 24 * 4),
-      },
-      {
-        id: "demo-booking-2",
-        camp_id: DEMO_CAMP_ID,
-        group_name: "Kawartha homeschool co-op",
-        contact_name: "Beth Lindsay",
-        contact_email: "beth@kawarthacoop.example.com",
-        contact_phone: null,
-        start_date: isoDate(34),
-        end_date: isoDate(35),
-        headcount: 25,
-        status: "inquiry",
-        notes: "Asked about day rates and whether the ropes course is open.",
-        created_at: isoTime(-60 * 30),
-        updated_at: isoTime(-60 * 30),
-      },
-      {
-        id: "demo-booking-3",
-        camp_id: DEMO_CAMP_ID,
-        group_name: "Women's winter retreat",
-        contact_name: "Marie Chen",
-        contact_email: "marie.chen@example.com",
-        contact_phone: "705-555-0133",
-        start_date: isoDate(72),
-        end_date: isoDate(74),
-        headcount: 60,
-        status: "confirmed",
-        notes: "Repeat booking - same rooms as last year.",
-        created_at: isoTime(-60 * 24 * 40),
-        updated_at: isoTime(-60 * 24 * 9),
-      },
-      {
-        id: "demo-booking-4",
-        camp_id: DEMO_CAMP_ID,
-        group_name: "St. Luke's confirmation weekend",
-        contact_name: "Deacon Ray Price",
-        contact_email: "ray@stlukes.example.com",
-        contact_phone: null,
-        start_date: isoDate(-21),
-        end_date: isoDate(-19),
-        headcount: 32,
-        status: "completed",
-        notes: null,
-        created_at: isoTime(-60 * 24 * 60),
-        updated_at: isoTime(-60 * 24 * 19),
-      },
-    ],
-
     gmail_accounts: [],
-
-    calendar_accounts: [],
   };
 }

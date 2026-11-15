@@ -96,15 +96,15 @@ export async function listUpcomingEvents(
   return ((data?.items ?? []) as RawEvent[]).map(toEvent);
 }
 
-export interface BookingEventInput {
+export interface CalendarEventInput {
   summary: string;
   description?: string | null;
-  /** All-day dates, YYYY-MM-DD. The end date is exclusive in Google's API. */
+  /** All-day dates, YYYY-MM-DD, both inclusive (eventBody converts the end to Google's exclusive form). */
   startDate: string;
   endDate: string;
 }
 
-function eventBody(input: BookingEventInput) {
+function eventBody(input: CalendarEventInput) {
   // Google treats an all-day event's end date as exclusive, so a group that
   // leaves on the 8th needs an end of the 9th to show across the 8th.
   const endExclusive = new Date(`${input.endDate}T00:00:00Z`);
@@ -121,7 +121,7 @@ function eventBody(input: BookingEventInput) {
 export async function createEvent(
   accessToken: string,
   calendarId: string,
-  input: BookingEventInput
+  input: CalendarEventInput
 ): Promise<string> {
   const data = await calendarFetch(
     accessToken,
@@ -135,7 +135,7 @@ export async function updateEvent(
   accessToken: string,
   calendarId: string,
   eventId: string,
-  input: BookingEventInput
+  input: CalendarEventInput
 ): Promise<void> {
   await calendarFetch(
     accessToken,

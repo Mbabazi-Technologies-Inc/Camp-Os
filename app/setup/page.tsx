@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { Card } from "@/components/ui/Card";
 import { BrandMark } from "@/components/Brand";
 import { isGoogleConfigured, isOpenAIConfigured, isSupabaseConfigured } from "@/lib/env";
 import { Check, X, CircleDashed } from "lucide-react";
+
+export const metadata: Metadata = { title: "Set up" };
 
 // Reads the environment on each request so a restart with new values shows up.
 export const dynamic = "force-dynamic";
@@ -102,7 +105,7 @@ export default function SetupPage() {
               note={
                 googleReady
                   ? "Found."
-                  : "Optional. Needed to sync Gmail, save replies as Gmail drafts, and put bookings on Google Calendar."
+                  : "Optional. Needed to sync Gmail, save replies as Gmail drafts, and put confirmed retreat groups on Google Calendar."
               }
             />
           </div>

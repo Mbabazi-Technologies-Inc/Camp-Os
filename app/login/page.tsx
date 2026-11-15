@@ -5,7 +5,18 @@ import { Input, Label } from "@/components/ui/Field";
 import { Card } from "@/components/ui/Card";
 import { BrandMark } from "@/components/Brand";
 import { isSupabaseConfigured } from "@/lib/env";
-import { Waves, Mail, ShieldCheck, Sparkles, FlaskConical } from "lucide-react";
+import { Mail, Sparkles, FlaskConical } from "lucide-react";
+import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}): Promise<Metadata> {
+  const { mode } = await searchParams;
+  return { title: mode === "signup" ? "Create account" : "Sign in" };
+}
 
 export default async function LoginPage({
   searchParams,
@@ -34,12 +45,10 @@ export default async function LoginPage({
         </svg>
 
         <div className="relative flex items-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
-            <Waves size={20} />
-          </div>
+          <BrandMark tone="glass" />
           <div>
-            <p className="font-semibold leading-tight tracking-tight">Mill Stream</p>
-            <p className="text-xs text-white/70 leading-tight">Camp office</p>
+            <p className="font-semibold leading-tight tracking-tight">{brand.name}</p>
+            <p className="text-xs text-white/70 leading-tight">{brand.tagline}</p>
           </div>
         </div>
 
@@ -56,18 +65,13 @@ export default async function LoginPage({
             </li>
             <li className="flex items-start gap-2.5">
               <Mail size={17} className="mt-0.5 shrink-0" />
-              Approved replies land in your Gmail drafts - you always press send.
-            </li>
-            <li className="flex items-start gap-2.5">
-              <ShieldCheck size={17} className="mt-0.5 shrink-0" />
-              Nothing ever goes out without a human&apos;s okay.
+              Forward or paste a parent email, review the drafted reply, approve it, and copy
+              it into your email. Nothing is ever sent for you.
             </li>
           </ul>
         </div>
 
-        <p className="relative text-xs text-white/60">
-          Built for Mill Stream Bible Camp &amp; Retreat Centre
-        </p>
+        <p className="relative text-xs text-white/60">&copy; {new Date().getFullYear()} {brand.name}</p>
       </div>
 
       {/* Form panel */}
@@ -77,12 +81,11 @@ export default async function LoginPage({
             <div className="mx-auto lg:mx-0 mb-3 w-fit">
               <BrandMark size="lg" />
             </div>
+            <p className="text-sm font-semibold text-primary tracking-tight mb-1">{brand.name}</p>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              {mode === "signin" ? "Welcome back" : "Create your account"}
+              {mode === "signin" ? "Welcome back" : `Create your ${brand.name} account`}
             </h1>
-            <p className="text-sm text-muted mt-1">
-              Less time on email, more time with campers.
-            </p>
+            <p className="text-sm text-muted mt-1">{brand.tagline}</p>
           </div>
 
           {demoMode && (
@@ -92,7 +95,7 @@ export default async function LoginPage({
                 Demo mode
               </p>
               <p className="text-sm text-muted mt-1">
-                No database is connected yet, so the app is running on sample Mill Stream
+                No database is connected yet, so the app is running on sample camp
                 data. Sign in with anything - or just press the button - to look around.
               </p>
               <form action={signIn} className="mt-3">
@@ -148,7 +151,7 @@ export default async function LoginPage({
                     id="campName"
                     name="campName"
                     autoComplete="organization"
-                    placeholder="Mill Stream Bible Camp"
+                    placeholder="e.g. Pine Lake Camp"
                   />
                 </div>
                 <div>

@@ -69,7 +69,7 @@ function isPortOpen(host, port, timeout = 1200) {
   });
 }
 
-console.log('\n  Mill Stream Camp Office - open on your phone\n');
+console.log(`\n  ${process.env.NEXT_PUBLIC_PRODUCT_NAME || 'Camp office'} - open on your phone\n`);
 
 const forwarded = forwardedEnvironment();
 const serverUp = await isPortOpen('127.0.0.1', PORT);

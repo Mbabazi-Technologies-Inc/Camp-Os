@@ -1,8 +1,8 @@
 import type {
-  BookingStatus,
   EmailCategory,
   EmailUrgency,
   KnowledgeCategory,
+  RetreatGroupStatus,
   TaskPriority,
 } from "@/lib/supabase/database.types";
 
@@ -23,7 +23,6 @@ export const KNOWLEDGE_CATEGORY_LABELS: Record<KnowledgeCategory, string> = {
   pickup_times: "Pickup Times",
   packing_list: "Packing List",
   policy: "Policy",
-  retreat: "Retreats & Rentals",
   other: "Other",
 };
 
@@ -34,9 +33,6 @@ export const EMAIL_CATEGORY_LABELS: Record<EmailCategory, string> = {
   billing: "Billing",
   logistics: "Logistics",
   general: "General",
-  retreat: "Retreat Booking",
-  registration: "Registration",
-  donation: "Donation",
   other: "Other",
 };
 
@@ -54,16 +50,16 @@ export const EMAIL_URGENCY_STYLES: Record<EmailUrgency, string> = {
   urgent: "bg-danger-soft text-danger",
 };
 
-export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
+export const RETREAT_STATUS_LABELS: Record<RetreatGroupStatus, string> = {
   inquiry: "Inquiry",
+  tentative: "Tentative",
   confirmed: "Confirmed",
-  completed: "Completed",
   cancelled: "Cancelled",
 };
 
-export const BOOKING_STATUS_STYLES: Record<BookingStatus, string> = {
-  inquiry: "bg-warning-soft text-warning",
-  confirmed: "bg-primary-soft text-primary",
-  completed: "bg-surface-muted text-muted",
-  cancelled: "bg-danger-soft text-danger",
+export const RETREAT_STATUS_STYLES: Record<RetreatGroupStatus, string> = {
+  inquiry: "bg-primary-soft text-primary",
+  tentative: "bg-warning-soft text-warning",
+  confirmed: "bg-forest-soft text-forest",
+  cancelled: "bg-surface-muted text-muted",
 };

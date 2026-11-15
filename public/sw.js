@@ -1,5 +1,5 @@
-const CACHE_NAME = "campflow-shell-v1";
-const SHELL_URLS = ["/", "/manifest.json"];
+const CACHE_NAME = "app-shell-v2";
+const SHELL_URLS = ["/", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

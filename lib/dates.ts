@@ -1,9 +1,20 @@
+// The camp is in Ontario, so "today" follows Eastern time wherever the server
+// runs (Vercel is on UTC, which would roll over to tomorrow at 7-8 pm).
+export const CAMP_TIME_ZONE = "America/Toronto";
+
+/** YYYY-MM-DD in camp time, `offsetDays` from today. */
+export function campISODate(offsetDays = 0): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: CAMP_TIME_ZONE }).format(
+    new Date(Date.now() + offsetDays * 86_400_000)
+  );
+}
+
 export function todayISODate() {
-  return new Date().toISOString().slice(0, 10);
+  return campISODate(0);
 }
 
 export function tomorrowISODate() {
-  return new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  return campISODate(1);
 }
 
 export function formatDueDate(dueDate: string | null): {
@@ -49,17 +60,26 @@ export function formatRelativeTime(isoTimestamp: string): string {
   return new Date(isoTimestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export function formatDateRange(start: string | null, end: string | null): string | null {
-  if (!start && !end) return null;
+// "Oct 30 - Nov 1" for a stay, or a single date when there's no departure.
+export function formatDateRange(start: string | null, end: string | null): string {
+  if (!start) return "Dates to be confirmed";
+  const fmt = (d: string) =>
+    new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return end && end !== start ? `${fmt(start)} - ${fmt(end)}` : fmt(start);
+}
 
-  const fmt = (iso: string) =>
-    new Date(iso + "T00:00:00").toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
+export function nightsBetween(start: string | null, end: string | null): number | null {
+  if (!start || !end) return null;
+  const nights = Math.round(
+    (new Date(end + "T00:00:00").getTime() - new Date(start + "T00:00:00").getTime()) / 86_400_000
+  );
+  return nights >= 0 ? nights : null;
+}
 
-  if (start && end) {
-    return start === end ? fmt(start) : `${fmt(start)} - ${fmt(end)}`;
-  }
-  return fmt((start ?? end) as string);
+/** Days from today (camp time) to the coming Saturday and the next Monday. */
+export function weekdayOffsets(): { saturday: number; monday: number } {
+  const day = new Date(campISODate(0) + "T00:00:00").getDay();
+  const saturday = (6 - day + 7) % 7 || 7;
+  const monday = (1 - day + 7) % 7 || 7;
+  return { saturday, monday };
 }

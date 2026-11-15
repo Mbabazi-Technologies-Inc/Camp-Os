@@ -1,56 +1,20 @@
-// Mill Stream runs summer camp sessions and operates as a retreat centre the
-// rest of the year, so the app has to be useful in both modes.
+// Camps run summer camp in July and August; the rest of the year
+// (September to June) the property is a retreat centre for groups.
+export type Season = "summer" | "retreat";
 
-export type Season = "summer" | "fall" | "winter" | "spring";
-
-export interface SeasonInfo {
-  season: Season;
-  /** True during the summer camp sessions. */
-  isCampSeason: boolean;
-  label: string;
-  /** Short description of what the office is mostly handling right now. */
-  focus: string;
+export function seasonFor(date: Date = new Date()): Season {
+  const month = date.getMonth();
+  return month === 6 || month === 7 ? "summer" : "retreat";
 }
 
-// Northern-hemisphere camp calendar: sessions run late June through August.
-export function getSeason(date = new Date()): SeasonInfo {
-  const month = date.getMonth(); // 0-11
-  const day = date.getDate();
+export const SEASON_LABELS: Record<Season, string> = {
+  summer: "Summer camp",
+  retreat: "Retreat season",
+};
 
-  const inCampSeason =
-    (month === 5 && day >= 20) || month === 6 || (month === 7 && day <= 31);
-
-  if (inCampSeason) {
-    return {
-      season: "summer",
-      isCampSeason: true,
-      label: "Camp season",
-      focus: "campers on site",
-    };
-  }
-
-  if (month === 8 || month === 9 || month === 10 || (month === 7 && day > 31)) {
-    return {
-      season: "fall",
-      isCampSeason: false,
-      label: "Off-season - fall",
-      focus: "retreat groups and next summer's registrations",
-    };
-  }
-
-  if (month === 11 || month === 0 || month === 1) {
-    return {
-      season: "winter",
-      isCampSeason: false,
-      label: "Off-season - winter",
-      focus: "retreat bookings, registration and hiring",
-    };
-  }
-
-  return {
-    season: "spring",
-    isCampSeason: false,
-    label: "Off-season - spring",
-    focus: "registrations, staff hiring and getting the site ready",
-  };
+/** Last day of the season `date` falls in: Aug 31 for summer, June 30 for retreats. */
+export function seasonEndFor(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  if (seasonFor(date) === "summer") return `${year}-08-31`;
+  return date.getMonth() >= 8 ? `${year + 1}-06-30` : `${year}-06-30`;
 }

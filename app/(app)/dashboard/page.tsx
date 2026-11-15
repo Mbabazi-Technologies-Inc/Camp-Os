@@ -1,16 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireCamp } from "@/lib/auth";
+import { isSupabaseConfigured } from "@/lib/env";
+import { canSee, getChannelList } from "@/lib/chat";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { HomeHero, type HeroChip, type HeroNext, type HeroStat } from "@/components/home/HomeHero";
+import { acknowledge } from "@/app/(app)/chat/actions";
+import { campTimeNow, ensureRoutineTasks, getMyStaff, myTasksFilter } from "@/lib/routines";
 import { createTask } from "@/app/(app)/tasks/actions";
 import { addStarterPack } from "@/app/(app)/knowledge-base/actions";
-import {
-  todayISODate,
-  tomorrowISODate,
-  formatRelativeTime,
-  formatDateRange,
-} from "@/lib/dates";
-import { getSeason } from "@/lib/season";
+import { todayISODate, tomorrowISODate, formatRelativeTime, campISODate } from "@/lib/dates";
+import { seasonFor, SEASON_LABELS } from "@/lib/season";
+import { GroupRow } from "@/components/groups/GroupRow";
 import { getAgenda, formatEventWhen } from "@/lib/agenda";
-import { BOOKING_STATUS_LABELS, BOOKING_STATUS_STYLES } from "@/lib/labels";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -23,16 +25,24 @@ import {
   Mail,
   ListTodo,
   Plus,
-  ArrowRight,
-  Sun,
-  Sparkles,
   CheckCircle2,
   Circle,
-  Tent,
+  Trees,
+  Megaphone,
+  MessageSquare,
+  AtSign,
   CalendarDays,
 } from "lucide-react";
+import { brand } from "@/lib/brand";
+
+export const metadata: Metadata = { title: "Today" };
 
 export const dynamic = "force-dynamic";
+
+function isoDaysFromToday(days: number) {
+  return campISODate(days);
+}
+
 
 function greetingForHour(hour: number) {
   if (hour < 12) return "Good morning";
@@ -40,11 +50,16 @@ function greetingForHour(hour: number) {
   return "Good evening";
 }
 
-export default async function DashboardPage() {
-  const { supabase, campId, fullName } = await requireCamp();
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ hour?: string }> }) {
+  const { supabase, campId, fullName, role, userId } = await requireCamp();
+  const { hour: previewHour } = await searchParams;
 
   const today = todayISODate();
   const tomorrow = tomorrowISODate();
+  await ensureRoutineTasks(today);
+  const me = await getMyStaff();
+  const isDirector = role === "director";
+  const mineFilter = myTasksFilter(isDirector, me);
 
   const [
     { data: camp },
@@ -57,7 +72,9 @@ export default async function DashboardPage() {
     { count: kbCount },
     { count: emailEverCount },
     { data: gmailAccount },
-    { data: upcomingGroups },
+    { data: retreatGroups },
+    { data: teamToday },
+    { data: teamOverdue },
   ] = await Promise.all([
     supabase.from("camps").select("name").eq("id", campId).maybeSingle(),
     supabase
@@ -65,20 +82,22 @@ export default async function DashboardPage() {
       .select("*")
       .eq("camp_id", campId)
       .eq("status", "open")
-      .or(`due_date.lte.${today},due_date.is.null`)
+      .or(mineFilter)
       .order("due_date", { ascending: true, nullsFirst: false })
       .order("priority", { ascending: false })
-      .limit(8),
-    supabase
-      .from("tasks")
-      .select("id", { count: "exact", head: true })
-      .eq("camp_id", campId)
-      .eq("status", "open"),
+      .limit(40),
     supabase
       .from("tasks")
       .select("id", { count: "exact", head: true })
       .eq("camp_id", campId)
       .eq("status", "open")
+      .or(mineFilter),
+    supabase
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("camp_id", campId)
+      .eq("status", "open")
+      .or(mineFilter)
       .lt("due_date", today),
     supabase
       .from("email_drafts")
@@ -108,22 +127,85 @@ export default async function DashboardPage() {
       .eq("camp_id", campId),
     supabase.from("gmail_accounts").select("email").eq("camp_id", campId).maybeSingle(),
     supabase
-      .from("bookings")
+      .from("retreat_groups")
       .select("*")
       .eq("camp_id", campId)
-      .in("status", ["inquiry", "confirmed"])
-      .gte("end_date", today)
-      .order("start_date", { ascending: true, nullsFirst: false })
-      .limit(4),
+      .neq("status", "cancelled")
+      .order("arrival_date", { ascending: true, nullsFirst: false }),
+    // The director's view of everyone else's day (see Team tasks).
+    isDirector
+      ? supabase.from("tasks").select("status, due_time, assigned_to").eq("due_date", today)
+      : Promise.resolve({ data: [] as { status: string; due_time: string | null; assigned_to: string | null }[] }),
+    isDirector
+      ? supabase.from("tasks").select("id, assigned_to").eq("status", "open").lt("due_date", today)
+      : Promise.resolve({ data: [] as { id: string; assigned_to: string | null }[] }),
   ]);
 
-  const agenda = await getAgenda(supabase, campId);
+  // Mentions of me and anything unread in chat, newest first (the mockup's
+  // "Mentions & replies").
+  const myName = fullName ?? "";
+  const myFirst = myName.split(" ")[0];
+  const [{ data: recentMessages }, { data: myReads }, { data: channelRows }] = await Promise.all([
+    supabase
+      .from("messages")
+      .select("*")
+      .eq("kind", "user")
+      .gte("created_at", campISODate(-7))
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase.from("channel_reads").select("*").eq("user_id", userId),
+    supabase.from("channels").select("id, name, kind, members, retreat_group_id"),
+  ]);
+  const readAt = new Map((myReads ?? []).map((r) => [r.channel_id, r.last_read_at]));
+  const channelById = new Map((channelRows ?? []).map((c) => [c.id, c]));
+  const mentionsMe = (body: string) =>
+    Boolean(myName) && (body.includes(`@${myName}`) || (myFirst.length > 2 && body.includes(`@${myFirst}`)));
+  const forMe = (recentMessages ?? [])
+    .filter((m) => m.author_id !== userId)
+    .filter((m) => {
+      const channel = channelById.get(m.channel_id);
+      return Boolean(channel && canSee(channel, userId));
+    })
+    .filter((m) => mentionsMe(m.body) || m.created_at > (readAt.get(m.channel_id) ?? ""))
+    .slice(0, 5)
+    .map((m) => ({ ...m, mention: mentionsMe(m.body), channel: channelById.get(m.channel_id) }));
+
+  // Announcements I still need to confirm.
+  const [{ data: announcements }, { data: myAcks }] = await Promise.all([
+    supabase
+      .from("messages")
+      .select("*")
+      .eq("kind", "announcement")
+      .gte("created_at", campISODate(-30))
+      .order("created_at", { ascending: false }),
+    supabase.from("message_reactions").select("message_id").eq("user_id", userId).eq("emoji", "ack"),
+  ]);
+  const acked = new Set((myAcks ?? []).map((a) => a.message_id));
+  const toConfirm = (announcements ?? []).filter((a) => {
+    const channel = channelById.get(a.channel_id);
+    return a.author_id !== userId && !acked.has(a.id) && channel && canSee(channel, userId);
+  });
+
+  // Due today, overdue, or undated: what needs you now.
+  const dueNow = (priorityTasks ?? []).filter((t) => !t.due_date || t.due_date <= today).slice(0, 8);
+  const teamTasks = (teamToday ?? []).filter((t) => t.assigned_to);
+  const teamDone = teamTasks.filter((t) => t.status === "done").length;
+  const nowTime = campTimeNow();
+  const teamLate =
+    teamTasks.filter((t) => t.status === "open" && t.due_time && t.due_time < nowTime).length +
+    (teamOverdue ?? []).filter((t) => t.assigned_to).length;
+
+  const season = seasonFor(new Date());
+  const upcomingGroups = (retreatGroups ?? [])
+    .filter((g) => {
+      const lastDay = g.departure_date ?? g.arrival_date;
+      return lastDay && lastDay >= today;
+    })
+    .slice(0, 4);
 
   const firstName = fullName?.split(" ")?.[0];
-  const now = new Date();
-  const season = getSeason(now);
   const caughtUp =
-    (priorityTasks?.length ?? 0) === 0 && (pendingEmails?.length ?? 0) === 0;
+    dueNow.length === 0 && (pendingEmails?.length ?? 0) === 0;
 
   // Onboarding: shown until the camp has a real name, some knowledge, and
   // has processed at least one email.
@@ -136,119 +218,148 @@ export default async function DashboardPage() {
   const topUrgentEmail = pendingEmails?.find(
     (d) => d.urgency === "urgent" || d.urgency === "high"
   );
-  const topOverdueTask = priorityTasks?.find(
+  const topOverdueTask = dueNow.find(
     (t) => t.due_date && t.due_date < today
   );
-  const briefingParts: string[] = [];
-  if ((urgentEmailCount ?? 0) > 0) {
-    briefingParts.push(
-      `${urgentEmailCount} urgent email${urgentEmailCount === 1 ? "" : "s"} waiting`
-    );
-  } else if ((pendingEmailCount ?? 0) > 0) {
-    briefingParts.push(
-      `${pendingEmailCount} draft${pendingEmailCount === 1 ? "" : "s"} to review`
-    );
-  }
-  if ((overdueCount ?? 0) > 0) {
-    briefingParts.push(`${overdueCount} task${overdueCount === 1 ? "" : "s"} overdue`);
-  }
+  // What's coming up on the camp's Google Calendar (sample events in demo
+  // mode). Never throws; hidden when no calendar is connected.
+  const agenda = await getAgenda(supabase, campId);
+
+  const retreatSection = (
+    <>
+      {upcomingGroups.length > 0 && (
+        <section className="mt-8">
+          <SectionHeading title="Upcoming retreat groups" icon={Trees} count={upcomingGroups.length} href="/groups" linkLabel="All groups" tone="forest" />
+          <Card className="px-3">
+            <div className="divide-y divide-border">
+              {upcomingGroups.map((g) => (
+                <GroupRow key={g.id} group={g} />
+              ))}
+            </div>
+          </Card>
+        </section>
+      )}
+      {agenda.connected && agenda.events.length > 0 && (
+        <section className="mt-8">
+          <SectionHeading title="Coming up on the calendar" icon={CalendarDays} count={agenda.events.length} tone="primary" />
+          <Card className="px-4">
+            <ul className="divide-y divide-border">
+              {agenda.events.map((event) => (
+                <li key={event.id} className="flex items-baseline justify-between gap-3 py-2.5">
+                  <span className="min-w-0 truncate text-sm font-medium text-foreground">{event.summary}</span>
+                  <span className="shrink-0 text-xs text-muted">{formatEventWhen(event)}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </section>
+      )}
+    </>
+  );
+
+  // The hour at camp (not the server's clock) decides the greeting and the sky.
+  const campHour = Number(
+    new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: "America/Toronto" }).format(new Date())
+  );
+  // Demo only: ?hour=19 previews the evening sky without waiting for it.
+  const hour =
+    !isSupabaseConfigured() && previewHour && /^\d{1,2}$/.test(previewHour) ? Number(previewHour) % 24 : campHour;
+  const unreadChat = (await getChannelList()).reduce((sum, c) => sum + c.unread, 0);
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+  const heroChips: HeroChip[] = [
+    ...((urgentEmailCount ?? 0) > 0
+      ? [{ label: `${plural(urgentEmailCount ?? 0, "urgent email")}`, href: "/email-assistant", icon: Mail, tone: "urgent" as const }]
+      : (pendingEmailCount ?? 0) > 0
+        ? [{ label: `${plural(pendingEmailCount ?? 0, "draft")} to review`, href: "/email-assistant", icon: Mail }]
+        : []),
+    ...((overdueCount ?? 0) > 0
+      ? [{ label: `${plural(overdueCount ?? 0, "task")} overdue`, href: "/tasks", icon: ListTodo, tone: "urgent" as const }]
+      : []),
+    ...(toConfirm.length > 0
+      ? [{ label: `${plural(toConfirm.length, "announcement")} to confirm`, href: "#confirm", icon: Megaphone, tone: "urgent" as const }]
+      : []),
+    ...(unreadChat > 0 ? [{ label: `${plural(unreadChat, "unread message")}`, href: "/chat", icon: MessageSquare }] : []),
+  ];
+
+  // Up next: the next confirmed group within two weeks.
+  const soonest = upcomingGroups.find(
+    (g) => g.status === "confirmed" && g.arrival_date && g.arrival_date >= today && g.arrival_date <= isoDaysFromToday(14)
+  );
+  const daysAway = soonest?.arrival_date
+    ? Math.round((new Date(soonest.arrival_date + "T00:00:00").getTime() - new Date(today + "T00:00:00").getTime()) / 86_400_000)
+    : null;
+  const groupChannel = soonest ? (channelRows ?? []).find((c) => c.retreat_group_id === soonest.id) : undefined;
+  const heroNext: HeroNext | null = soonest
+    ? {
+        kicker: "Up next",
+        title: soonest.name,
+        when:
+          daysAway === 0
+            ? "Arriving today"
+            : `Arrives ${new Date(soonest.arrival_date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}`,
+        countdown: daysAway && daysAway > 0 ? `${daysAway} ${daysAway === 1 ? "day to go" : "days to go"}` : null,
+        detail: [soonest.headcount ? `${soonest.headcount} people` : null, groupChannel ? "Open the group chat" : "Open booking"]
+          .filter(Boolean)
+          .join(" · "),
+        href: groupChannel ? `/chat/${groupChannel.name}` : `/groups/${soonest.id}`,
+      }
+    : null;
+
+  const heroStats: HeroStat[] = [
+    { label: "Open tasks", value: String(openTaskCount ?? 0), sub: overdueCount ? `${overdueCount} late` : undefined, href: "/tasks", alert: Boolean(overdueCount) },
+    { label: "Drafts", value: String(pendingEmailCount ?? 0), href: "/email-assistant" },
+    isDirector
+      ? {
+          label: teamLate ? `Team · ${teamLate} late` : "Team today",
+          value: `${teamDone}`,
+          sub: `of ${teamTasks.length}`,
+          href: "/tasks/team",
+          progress: teamTasks.length ? Math.round((teamDone / teamTasks.length) * 100) : 0,
+          alert: teamLate > 0,
+        }
+      : { label: "Unread", value: String(unreadChat), href: "/chat" },
+  ];
 
   return (
     <div>
-      {/* Hero */}
-      <div className="relative overflow-hidden rounded-3xl bg-stream text-white p-5 md:p-6 mb-5 shadow-card">
-        <div
-          className="absolute -right-10 -top-14 h-44 w-44 rounded-full bg-white/10"
-          aria-hidden
-        />
-        <div
-          className="absolute -right-2 top-16 h-24 w-24 rounded-full bg-white/10"
-          aria-hidden
-        />
-        <svg
-          className="absolute bottom-0 inset-x-0 w-full text-white/10"
-          viewBox="0 0 400 40"
-          preserveAspectRatio="none"
-          aria-hidden
-        >
-          <path
-            d="M0 25 Q 50 10, 100 25 T 200 25 T 300 25 T 400 25 V 40 H 0 Z"
-            fill="currentColor"
-          />
-          <path
-            d="M0 32 Q 50 20, 100 32 T 200 32 T 300 32 T 400 32 V 40 H 0 Z"
-            fill="currentColor"
-          />
-        </svg>
-        <div className="relative">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="flex items-center gap-1.5 text-sm text-white/80">
-              <Sun size={15} />
-              {now.toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              })}
-            </p>
-            <span className="rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-medium text-white/90">
-              {season.label}
-            </span>
-          </div>
-          <h1 className="text-2xl font-semibold mt-1">
-            {greetingForHour(now.getHours())}
-            {firstName ? `, ${firstName}` : ""}
-          </h1>
-          <p className="text-sm text-white/80 mt-1">
-            {caughtUp
-              ? season.isCampSeason
-                ? "All clear - go be with the campers."
-                : "All clear - nothing needs you right now."
-              : briefingParts.length > 0
-                ? `Today: ${briefingParts.join(" and ")}.`
-                : "Here's what needs you before you head out."}
-          </p>
-          {(topUrgentEmail || topOverdueTask) && (
-            <Link
-              href={
-                topUrgentEmail ? `/email-assistant/${topUrgentEmail.id}` : "/tasks"
+      <HomeHero
+        hour={hour}
+        greeting={`${greetingForHour(hour)}${firstName ? `, ${firstName}` : ""}`}
+        dateLabel={new Date(today + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        seasonLabel={SEASON_LABELS[season]}
+        summer={season === "summer"}
+        summary={
+          caughtUp
+            ? season === "summer"
+              ? "All clear. Go be with the campers."
+              : "All clear. Enjoy the quiet between groups."
+            : heroChips.length
+              ? "Here's what needs you today."
+              : "Nothing urgent. Here's the day at a glance."
+        }
+        chips={heroChips}
+        urgent={
+          topUrgentEmail
+            ? {
+                label:
+                  topUrgentEmail.ai_summary ||
+                  `Urgent email from ${topUrgentEmail.sender_name || topUrgentEmail.sender_email || "a parent"}`,
+                href: `/email-assistant/${topUrgentEmail.id}`,
               }
-              className="mt-3 flex items-start gap-2 rounded-xl bg-white/10 border border-white/20 px-3 py-2.5 hover:bg-white/15 transition-colors"
-            >
-              <Sparkles size={15} className="mt-0.5 shrink-0 text-white/90" />
-              <span className="text-sm text-white/95 min-w-0">
-                <span className="font-medium">Can&apos;t wait: </span>
-                {topUrgentEmail
-                  ? topUrgentEmail.ai_summary ||
-                    `Urgent email from ${topUrgentEmail.sender_name || topUrgentEmail.sender_email || "a parent"}`
-                  : topOverdueTask!.title}
-              </span>
-            </Link>
-          )}
-          <div className="flex flex-wrap gap-2 mt-4">
-            <LinkButton
-              href="/email-assistant/new"
-              size="sm"
-              className="!bg-white !text-primary hover:!bg-white/90"
-            >
-              <Mail size={15} /> Paste an email
-            </LinkButton>
-            {gmailAccount && (
-              <LinkButton
-                href="/email-assistant"
-                size="sm"
-                className="!bg-white/15 !text-white border border-white/25 hover:!bg-white/25"
-              >
-                <ArrowRight size={15} /> Review inbox
-              </LinkButton>
-            )}
-          </div>
-        </div>
-      </div>
+            : topOverdueTask
+              ? { label: topOverdueTask.title, href: `/tasks/${topOverdueTask.id}` }
+              : null
+        }
+        next={heroNext}
+        stats={heroStats}
+        showReviewInbox={Boolean(gmailAccount)}
+      />
 
       {/* Onboarding checklist */}
       {onboarding && (
         <Card className="p-4 mb-5">
-          <p className="font-semibold text-foreground mb-1">Set up CampFlow</p>
+          <p className="font-semibold text-foreground mb-1">Set up {brand.name}</p>
           <p className="text-sm text-muted mb-3">
             Three quick steps and the AI starts writing replies that sound like your camp.
           </p>
@@ -302,164 +413,98 @@ export default async function DashboardPage() {
         </Card>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 mb-5">
-        <Link href="/tasks" className="group">
-          <Card className="p-4 transition-shadow group-hover:shadow-card-hover">
-            <div className="flex items-center justify-between">
-              <p className="text-3xl font-semibold text-foreground">
-                {openTaskCount ?? 0}
-              </p>
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                <ListTodo size={18} />
-              </span>
-            </div>
-            <p className="text-sm text-muted mt-1 flex items-center gap-1">
-              Open tasks
-              <ArrowRight
-                size={13}
-                className="opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0"
-              />
-            </p>
-          </Card>
-        </Link>
-        <Link href="/email-assistant" className="group">
-          <Card className="p-4 transition-shadow group-hover:shadow-card-hover">
-            <div className="flex items-center justify-between">
-              <p className="text-3xl font-semibold text-foreground">
-                {pendingEmailCount ?? 0}
-              </p>
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest-soft text-forest">
-                <Mail size={18} />
-              </span>
-            </div>
-            <p className="text-sm text-muted mt-1 flex items-center gap-1">
-              Drafts to review
-              <ArrowRight
-                size={13}
-                className="opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0"
-              />
-            </p>
-          </Card>
-        </Link>
-      </div>
-
-      {/* Quick add task */}
-      <Card className="p-3 mb-6">
-        <form action={createTask} className="flex gap-2">
-          <Input
-            name="title"
-            placeholder="Quick task... (try the mic on your keyboard)"
-            required
-            className="flex-1 min-w-0"
-            enterKeyHint="done"
-          />
-          <Select
-            name="due_date"
-            defaultValue={today}
-            className="basis-28 grow-0 shrink-0"
-            aria-label="Due date"
-          >
-            <option value={today}>Today</option>
-            <option value={tomorrow}>Tomorrow</option>
-            <option value="">No date</option>
-          </Select>
-          <SubmitButton pendingText="..." className="shrink-0 !px-3">
-            <Plus size={18} />
-          </SubmitButton>
-        </form>
-      </Card>
-
-      {agenda.connected && agenda.events.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-semibold text-foreground flex items-center gap-2">
-              <CalendarDays size={17} className="text-primary" />
-              On the calendar
-            </h2>
-            <Link
-              href="/settings"
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Calendar settings
-            </Link>
-          </div>
-          <Card className="px-3">
-            <div className="divide-y divide-border">
-              {agenda.events.map((event) => (
-                <div key={event.id} className="flex items-center gap-3 py-3 px-1">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground truncate">{event.summary}</p>
-                    <p className="text-sm text-muted truncate">
-                      {[formatEventWhen(event), event.location].filter(Boolean).join(" · ")}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </section>
-      )}
-
-      {upcomingGroups && upcomingGroups.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-semibold text-foreground flex items-center gap-2">
-              <Tent size={17} className="text-primary" />
-              Groups coming up
-            </h2>
-            <Link
-              href="/people/groups"
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              View all
-            </Link>
-          </div>
-          <Card className="px-3">
-            <div className="divide-y divide-border">
-              {upcomingGroups.map((booking) => (
-                <Link
-                  key={booking.id}
-                  href={`/people/groups/${booking.id}`}
-                  className="flex items-center justify-between gap-3 py-3 px-1 group"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                      {booking.group_name}
-                    </p>
-                    <p className="text-sm text-muted truncate">
-                      {[
-                        formatDateRange(booking.start_date, booking.end_date),
-                        booking.headcount ? `${booking.headcount} people` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "No dates yet"}
-                    </p>
-                  </div>
-                  <Badge className={`${BOOKING_STATUS_STYLES[booking.status]} shrink-0`}>
-                    {BOOKING_STATUS_LABELS[booking.status]}
-                  </Badge>
-                </Link>
-              ))}
-            </div>
-          </Card>
-        </section>
-      )}
-
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold text-foreground">Due today &amp; overdue</h2>
-          <Link
-            href="/tasks"
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            View all
-          </Link>
+      {/* Announcements waiting for my OK come before everything else */}
+      {toConfirm.length > 0 && (
+        <div id="confirm" className="mb-5 scroll-mt-20 space-y-3">
+          {toConfirm.map((a) => (
+            <Card key={a.id} className="overflow-hidden border-accent/40">
+              <div className="flex items-center gap-2 bg-accent px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white">
+                <Megaphone size={14} /> Please confirm
+                <span className="ml-auto font-medium normal-case tracking-normal opacity-90">
+                  {a.author_name} · {formatRelativeTime(a.created_at)}
+                </span>
+              </div>
+              <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+                <p className="flex-1 text-[15px] text-foreground">{a.body}</p>
+                <form action={acknowledge.bind(null, a.id)}>
+                  <SubmitButton pendingText="Saving...">
+                    <CheckCircle2 size={16} /> Got it
+                  </SubmitButton>
+                </form>
+              </div>
+            </Card>
+          ))}
         </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-6">
+      <section>
+        <SectionHeading title="Mentions & unread" icon={AtSign} count={forMe.length} href="/chat" linkLabel="Open chat" />
+        <Card>
+          {forMe.length > 0 ? (
+            <ul className="divide-y divide-border">
+              {forMe.map((m) => (
+                <li key={m.id}>
+                  <Link
+                    href={`/chat/${m.channel?.name ?? ""}`}
+                    className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface-muted/50"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#0f3a46] text-[11px] font-bold text-white">
+                      {(m.author_name ?? "?").split(" ").map((p) => p[0]).join("").slice(0, 2)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm">
+                        <span className="font-semibold text-foreground">{m.author_name}</span>
+                        <span className="text-muted">
+                          {m.channel?.kind === "direct"
+                            ? " · direct message"
+                            : ` in ${m.channel?.kind === "retreat_group" ? "" : "#"}${m.channel?.name}`}
+                          {" · "}
+                          {formatRelativeTime(m.created_at)}
+                        </span>
+                      </span>
+                      <span className="line-clamp-2 text-sm text-foreground">{m.body}</span>
+                    </span>
+                    {m.mention && (
+                      <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-warning">@you</span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="py-6">
+              <EmptyState title="You're all caught up" description="New messages and @mentions of you show up here." />
+            </div>
+          )}
+        </Card>
+      </section>
+
+      <section>
+        <SectionHeading title="Your tasks today" icon={ListTodo} count={dueNow.length} href="/tasks" tone="forest" />
         <Card className="px-3">
-          {priorityTasks && priorityTasks.length > 0 ? (
+          {/* Quick add, right where the list is */}
+          <form action={createTask} className="-mx-3 flex gap-2 border-b border-border bg-surface-muted/40 px-3 py-2.5">
+            <Input
+              name="title"
+              placeholder="Add a task… (try the mic on your keyboard)"
+              aria-label="New task"
+              required
+              className="h-10 min-w-0 !w-auto flex-1 text-[15px]"
+              enterKeyHint="done"
+            />
+            <Select name="due_date" defaultValue={today} className="h-10 !w-28 shrink-0 text-sm" aria-label="Due date">
+              <option value={today}>Today</option>
+              <option value={tomorrow}>Tomorrow</option>
+              <option value="">No date</option>
+            </Select>
+            <SubmitButton pendingText="…" className="h-10 shrink-0 !px-3">
+              <Plus size={18} />
+            </SubmitButton>
+          </form>
+          {dueNow.length > 0 ? (
             <div className="divide-y divide-border">
-              {priorityTasks.map((task) => (
+              {dueNow.map((task) => (
                 <TaskItem key={task.id} task={task} />
               ))}
             </div>
@@ -474,18 +519,15 @@ export default async function DashboardPage() {
         </Card>
       </section>
 
-      <section>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold text-foreground">
-            Drafts awaiting your approval
-          </h2>
-          <Link
-            href="/email-assistant"
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            Open assistant
-          </Link>
-        </div>
+      <section className="lg:col-span-2">
+        <SectionHeading
+          title="Drafts awaiting your approval"
+          icon={Mail}
+          count={pendingEmails?.length ?? 0}
+          href="/email-assistant"
+          linkLabel="Open assistant"
+          tone="accent"
+        />
         <Card className="px-3">
           {pendingEmails && pendingEmails.length > 0 ? (
             <div className="divide-y divide-border">
@@ -535,6 +577,9 @@ export default async function DashboardPage() {
           )}
         </Card>
       </section>
+      </div>
+
+      {retreatSection}
     </div>
   );
 }

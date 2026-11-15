@@ -1,13 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { BookOpen as BookOpenIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createKnowledgeEntry, addStarterPack } from "./actions";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { AddPanel } from "@/components/ui/AddPanel";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input, Textarea, Select, Label } from "@/components/ui/Field";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { KNOWLEDGE_CATEGORY_LABELS } from "@/lib/labels";
 import type { KnowledgeCategory } from "@/lib/supabase/database.types";
+
+export const metadata: Metadata = { title: "Knowledge" };
 
 export const dynamic = "force-dynamic";
 
@@ -33,12 +38,12 @@ export default async function KnowledgeBasePage() {
 
   return (
     <div>
-      <PageHeader
+      <PageHeader icon={BookOpenIcon} eyebrow="Camp knowledge"
         title="Knowledge base"
         description="The facts the AI is allowed to use when drafting replies - rules, pickup times, packing lists, and policies."
       />
 
-      <Card className="p-4 mb-6">
+      <AddPanel label="New entry">
         <form action={createKnowledgeEntry} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 sm:col-span-1">
@@ -70,7 +75,7 @@ export default async function KnowledgeBasePage() {
             Add entry
           </SubmitButton>
         </form>
-      </Card>
+      </AddPanel>
 
       {grouped.length === 0 ? (
         <Card>

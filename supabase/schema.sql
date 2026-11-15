@@ -55,27 +55,62 @@ as $$
   select camp_id from public.profiles where id = auth.uid();
 $$;
 
+-- Helper: is the current user a director of their camp?
+create or replace function public.is_camp_director()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'director' and camp_id is not null
+  );
+$$;
+
+-- Billing (Stripe). One plan per camp; every camp starts on a 30-day trial
+-- with no card. Members can read these columns, but only the service role
+-- (the Stripe webhook) may write them: see the column grants below.
+alter table public.camps
+  add column if not exists subscription_status text not null default 'trialing'
+    check (subscription_status in ('trialing', 'active', 'past_due', 'canceled'));
+alter table public.camps
+  add column if not exists trial_ends_at timestamptz not null default (now() + interval '30 days');
+alter table public.camps add column if not exists stripe_customer_id text;
+alter table public.camps add column if not exists stripe_subscription_id text;
+
+create unique index if not exists camps_stripe_customer_id_idx
+  on public.camps (stripe_customer_id);
+create unique index if not exists camps_stripe_subscription_id_idx
+  on public.camps (stripe_subscription_id);
+
 alter table public.camps enable row level security;
 
 create policy "Members can view their camp" on public.camps
   for select using (id = public.user_camp_id());
 create policy "Directors can update their camp" on public.camps
-  for update using (
-    id = public.user_camp_id()
-    and exists (
-      select 1 from public.profiles
-      where id = auth.uid() and role = 'director'
-    )
-  );
+  for update using (id = public.user_camp_id() and public.is_camp_director())
+  with check (id = public.user_camp_id());
+
+-- Camps are created only by the signup trigger, and directors may change only
+-- the name. Billing columns are written by the Stripe webhook through the
+-- service role, so a director can't mark their own camp as paid.
+revoke insert, update, delete on public.camps from anon, authenticated;
+grant update (name) on public.camps to authenticated;
 
 alter table public.profiles enable row level security;
 
 create policy "Users can view profiles in their camp" on public.profiles
   for select using (id = auth.uid() or camp_id = public.user_camp_id());
 create policy "Users can update their own profile" on public.profiles
-  for update using (id = auth.uid());
-create policy "Users can insert their own profile" on public.profiles
-  for insert with check (id = auth.uid());
+  for update using (id = auth.uid()) with check (id = auth.uid());
+
+-- Profiles are created only by the signup trigger, and users may change only
+-- their display name. camp_id and role are never writable from the API:
+-- otherwise staff could promote themselves to director or join another camp.
+revoke insert, update, delete on public.profiles from anon, authenticated;
+grant update (full_name) on public.profiles to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- camp_invites: email invites so staff can join an existing camp
@@ -93,9 +128,15 @@ create table if not exists public.camp_invites (
 
 alter table public.camp_invites enable row level security;
 
-create policy "Members manage their camp invites" on public.camp_invites
-  for all using (camp_id = public.user_camp_id())
+create policy "Members can view their camp invites" on public.camp_invites
+  for select using (camp_id = public.user_camp_id());
+create policy "Directors create invites" on public.camp_invites
+  for insert with check (camp_id = public.user_camp_id() and public.is_camp_director());
+create policy "Directors update invites" on public.camp_invites
+  for update using (camp_id = public.user_camp_id() and public.is_camp_director())
   with check (camp_id = public.user_camp_id());
+create policy "Directors delete invites" on public.camp_invites
+  for delete using (camp_id = public.user_camp_id() and public.is_camp_director());
 
 create index if not exists camp_invites_email_idx on public.camp_invites (lower(email));
 
@@ -122,8 +163,13 @@ begin
 
     update public.camp_invites set accepted_at = now() where id = invite.id;
   else
-    insert into public.camps (name, owner_id)
-    values (coalesce(nullif(new.raw_user_meta_data ->> 'camp_name', ''), 'My Camp'), new.id)
+    insert into public.camps (name, owner_id, subscription_status, trial_ends_at)
+    values (
+      coalesce(nullif(new.raw_user_meta_data ->> 'camp_name', ''), 'My Camp'),
+      new.id,
+      'trialing',
+      now() + interval '30 days'
+    )
     returning id into new_camp_id;
 
     insert into public.profiles (id, full_name, camp_id, role)
@@ -178,9 +224,7 @@ create table if not exists public.knowledge_base (
   id uuid primary key default gen_random_uuid(),
   camp_id uuid not null references public.camps (id) on delete cascade,
   category text not null default 'other' check (
-    category in (
-      'rules', 'pickup_times', 'packing_list', 'policy', 'retreat', 'other'
-    )
+    category in ('rules', 'pickup_times', 'packing_list', 'policy', 'other')
   ),
   title text not null,
   content text not null,
@@ -290,40 +334,37 @@ create trigger staff_set_updated_at
   for each row execute procedure public.set_updated_at();
 
 -- ---------------------------------------------------------------------------
--- bookings: retreat / group bookings. Mill Stream runs as a retreat centre
--- outside the summer sessions, so this is the bulk of off-season admin.
+-- retreat_groups: retreat-centre bookings outside the summer camp season
+-- (groups of 20-110, September to June).
 -- ---------------------------------------------------------------------------
-create table if not exists public.bookings (
+create table if not exists public.retreat_groups (
   id uuid primary key default gen_random_uuid(),
   camp_id uuid not null references public.camps (id) on delete cascade,
-  group_name text not null,
+  name text not null,
   contact_name text,
   contact_email text,
   contact_phone text,
-  start_date date,
-  end_date date,
-  headcount int,
-  status text not null default 'inquiry' check (
-    status in ('inquiry', 'confirmed', 'completed', 'cancelled')
-  ),
+  arrival_date date,
+  departure_date date,
+  headcount integer check (headcount is null or headcount >= 0),
+  status text not null default 'inquiry'
+    check (status in ('inquiry', 'tentative', 'confirmed', 'cancelled')),
   notes text,
-  google_event_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-alter table public.bookings enable row level security;
+alter table public.retreat_groups enable row level security;
 
-create policy "Members manage their camp bookings" on public.bookings
+create policy "Members manage their camp retreat groups" on public.retreat_groups
   for all using (camp_id = public.user_camp_id())
   with check (camp_id = public.user_camp_id());
 
-create index if not exists bookings_camp_id_idx on public.bookings (camp_id);
-create index if not exists bookings_start_date_idx on public.bookings (start_date);
+create index if not exists retreat_groups_camp_id_idx on public.retreat_groups (camp_id, arrival_date);
 
-drop trigger if exists bookings_set_updated_at on public.bookings;
-create trigger bookings_set_updated_at
-  before update on public.bookings
+drop trigger if exists retreat_groups_set_updated_at on public.retreat_groups;
+create trigger retreat_groups_set_updated_at
+  before update on public.retreat_groups
   for each row execute procedure public.set_updated_at();
 
 -- ---------------------------------------------------------------------------
@@ -343,10 +384,7 @@ create table if not exists public.email_drafts (
   gmail_message_id text,
   gmail_thread_id text,
   category text check (
-    category in (
-      'pickup', 'medical', 'behavior', 'billing', 'logistics', 'general',
-      'retreat', 'registration', 'donation', 'other'
-    )
+    category in ('pickup', 'medical', 'behavior', 'billing', 'logistics', 'general', 'other')
   ),
   urgency text check (urgency in ('low', 'medium', 'high', 'urgent')),
   ai_summary text,
@@ -373,35 +411,6 @@ create index if not exists email_drafts_status_idx on public.email_drafts (statu
 drop trigger if exists email_drafts_set_updated_at on public.email_drafts;
 create trigger email_drafts_set_updated_at
   before update on public.email_drafts
-  for each row execute procedure public.set_updated_at();
-
--- ---------------------------------------------------------------------------
--- calendar_accounts: one connected Google Calendar per camp. Confirmed
--- bookings are written to it so everyone on staff sees who is on site.
--- Tokens carry only the calendar.events scope - no mail access.
--- ---------------------------------------------------------------------------
-create table if not exists public.calendar_accounts (
-  camp_id uuid primary key references public.camps (id) on delete cascade,
-  email text not null,
-  calendar_id text not null default 'primary',
-  access_token text not null,
-  refresh_token text not null,
-  expires_at timestamptz not null,
-  connected_by uuid references auth.users (id) on delete set null,
-  last_synced_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-alter table public.calendar_accounts enable row level security;
-
-create policy "Members manage their camp calendar account" on public.calendar_accounts
-  for all using (camp_id = public.user_camp_id())
-  with check (camp_id = public.user_camp_id());
-
-drop trigger if exists calendar_accounts_set_updated_at on public.calendar_accounts;
-create trigger calendar_accounts_set_updated_at
-  before update on public.calendar_accounts
   for each row execute procedure public.set_updated_at();
 
 -- ---------------------------------------------------------------------------
@@ -433,3 +442,314 @@ drop trigger if exists gmail_accounts_set_updated_at on public.gmail_accounts;
 create trigger gmail_accounts_set_updated_at
   before update on public.gmail_accounts
   for each row execute procedure public.set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- Team tasks: who's on staff when, recurring routines, and who each task is for.
+--
+-- staff.team groups people for sending tasks ("Cabin leaders", "Kitchen").
+-- staff.season is 'summer' for seasonal staff, whose access_ends date stops
+-- routines reaching them once the summer is over. staff.profile_id links a
+-- staff record to the login that sees "My tasks".
+-- ---------------------------------------------------------------------------
+alter table public.staff add column if not exists team text;
+alter table public.staff add column if not exists season text not null default 'year_round';
+alter table public.staff add column if not exists under_18 boolean not null default false;
+alter table public.staff add column if not exists access_ends date;
+alter table public.staff add column if not exists profile_id uuid references auth.users (id) on delete set null;
+
+do $$ begin
+  alter table public.staff add constraint staff_season_check check (season in ('year_round', 'summer'));
+exception when duplicate_object then null; end $$;
+
+create index if not exists staff_profile_id_idx on public.staff (profile_id);
+
+-- routines: tasks the director sends once that repeat on a schedule. Each
+-- day it runs, every person it targets gets their own task.
+create table if not exists public.routines (
+  id uuid primary key default gen_random_uuid(),
+  camp_id uuid not null references public.camps (id) on delete cascade,
+  created_by uuid references auth.users (id) on delete set null,
+  title text not null,
+  description text,
+  target_type text not null check (target_type in ('person', 'team')),
+  target_staff_id uuid references public.staff (id) on delete cascade,
+  target_team text,
+  frequency text not null default 'daily' check (frequency in ('daily', 'weekly')),
+  -- 0 = Sunday ... 6 = Saturday; used when frequency is 'weekly'.
+  weekdays smallint[],
+  due_time text,
+  starts_on date not null default current_date,
+  ends_on date,
+  priority text not null default 'medium' check (priority in ('low', 'medium', 'high')),
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.routines enable row level security;
+
+drop policy if exists "Members read their camp routines" on public.routines;
+create policy "Members read their camp routines" on public.routines
+  for select using (camp_id = public.user_camp_id());
+
+drop policy if exists "Directors manage their camp routines" on public.routines;
+create policy "Directors manage their camp routines" on public.routines
+  for all using (
+    camp_id = public.user_camp_id()
+    and exists (select 1 from public.profiles where id = auth.uid() and role = 'director')
+  )
+  with check (camp_id = public.user_camp_id());
+
+create index if not exists routines_camp_id_idx on public.routines (camp_id);
+
+drop trigger if exists routines_set_updated_at on public.routines;
+create trigger routines_set_updated_at
+  before update on public.routines
+  for each row execute procedure public.set_updated_at();
+
+-- Tasks can now be for a specific person, and can come from a routine.
+alter table public.tasks add column if not exists assigned_to uuid references public.staff (id) on delete set null;
+alter table public.tasks add column if not exists routine_id uuid references public.routines (id) on delete set null;
+alter table public.tasks add column if not exists due_time text;
+alter table public.tasks add column if not exists completed_at timestamptz;
+
+create index if not exists tasks_assigned_to_idx on public.tasks (assigned_to, due_date);
+-- One copy of a routine per person per day, however many times it's generated.
+create unique index if not exists tasks_routine_person_day_idx
+  on public.tasks (routine_id, assigned_to, due_date)
+  where routine_id is not null;
+
+-- Checklists: a routine (or a one-off send) can list the steps that make up
+-- "done". Each task gets its own copy to tick through.
+alter table public.routines add column if not exists checklist text[];
+alter table public.tasks add column if not exists checklist jsonb;
+
+-- ---------------------------------------------------------------------------
+-- Chat: channels, messages and what each person has read.
+--
+-- kind 'standing' channels (#office, #kitchen) last all year. A 'retreat_group'
+-- channel is opened for each confirmed booking and archived after the group
+-- leaves. 'summer' channels hold a season's session and cabin-team chat.
+-- Messages are never deleted (safeguarding); kind 'system' is posted by the
+-- app itself, and task_id links a message to the task made from it.
+-- ---------------------------------------------------------------------------
+create table if not exists public.channels (
+  id uuid primary key default gen_random_uuid(),
+  camp_id uuid not null references public.camps (id) on delete cascade,
+  name text not null,
+  kind text not null default 'standing' check (kind in ('standing', 'retreat_group', 'summer')),
+  description text,
+  retreat_group_id uuid references public.retreat_groups (id) on delete set null,
+  archived boolean not null default false,
+  created_by uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  unique (camp_id, name)
+);
+
+alter table public.channels enable row level security;
+
+drop policy if exists "Members use their camp channels" on public.channels;
+create policy "Members use their camp channels" on public.channels
+  for all using (camp_id = public.user_camp_id())
+  with check (camp_id = public.user_camp_id());
+
+create unique index if not exists channels_retreat_group_idx
+  on public.channels (retreat_group_id) where retreat_group_id is not null;
+
+create table if not exists public.messages (
+  id uuid primary key default gen_random_uuid(),
+  camp_id uuid not null references public.camps (id) on delete cascade,
+  channel_id uuid not null references public.channels (id) on delete cascade,
+  author_id uuid references auth.users (id) on delete set null,
+  author_name text,
+  kind text not null default 'user' check (kind in ('user', 'system')),
+  body text not null,
+  task_id uuid references public.tasks (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.messages enable row level security;
+
+drop policy if exists "Members read their camp messages" on public.messages;
+create policy "Members read their camp messages" on public.messages
+  for select using (camp_id = public.user_camp_id());
+
+drop policy if exists "Members post in their camp" on public.messages;
+create policy "Members post in their camp" on public.messages
+  for insert with check (camp_id = public.user_camp_id());
+
+-- Only linking a task is allowed after posting; there is no delete policy.
+drop policy if exists "Members link tasks to messages" on public.messages;
+create policy "Members link tasks to messages" on public.messages
+  for update using (camp_id = public.user_camp_id())
+  with check (camp_id = public.user_camp_id());
+
+create index if not exists messages_channel_idx on public.messages (channel_id, created_at);
+
+create table if not exists public.channel_reads (
+  channel_id uuid not null references public.channels (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  last_read_at timestamptz not null default now(),
+  primary key (channel_id, user_id)
+);
+
+alter table public.channel_reads enable row level security;
+
+drop policy if exists "People manage their own read markers" on public.channel_reads;
+create policy "People manage their own read markers" on public.channel_reads
+  for all using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- Direct messages are channels of kind 'direct' that only their members see.
+alter table public.channels add column if not exists members uuid[];
+alter table public.channels drop constraint if exists channels_kind_check;
+alter table public.channels add constraint channels_kind_check
+  check (kind in ('standing', 'retreat_group', 'summer', 'direct'));
+
+drop policy if exists "Members use their camp channels" on public.channels;
+create policy "Members use their camp channels" on public.channels
+  for all using (
+    camp_id = public.user_camp_id()
+    and (kind <> 'direct' or auth.uid() = any (members))
+  )
+  with check (camp_id = public.user_camp_id());
+
+drop policy if exists "Members read their camp messages" on public.messages;
+create policy "Members read their camp messages" on public.messages
+  for select using (
+    camp_id = public.user_camp_id()
+    and exists (select 1 from public.channels c where c.id = channel_id)
+  );
+
+-- Reactions: a quick way to say "seen", "done" or "thanks" without a message.
+create table if not exists public.message_reactions (
+  message_id uuid not null references public.messages (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  user_name text,
+  emoji text not null,
+  created_at timestamptz not null default now(),
+  primary key (message_id, user_id, emoji)
+);
+
+alter table public.message_reactions enable row level security;
+
+drop policy if exists "Members see reactions" on public.message_reactions;
+create policy "Members see reactions" on public.message_reactions
+  for select using (exists (select 1 from public.messages m where m.id = message_id));
+
+drop policy if exists "People manage their own reactions" on public.message_reactions;
+create policy "People manage their own reactions" on public.message_reactions
+  for all using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- Threads: a reply points at the message it answers. Pins: one message per
+-- channel kept at the top (the weekend schedule, the gate code...).
+alter table public.messages add column if not exists parent_id uuid references public.messages (id) on delete cascade;
+create index if not exists messages_parent_idx on public.messages (parent_id);
+alter table public.channels add column if not exists pinned_message_id uuid references public.messages (id) on delete set null;
+
+-- Announcements: messages everyone is asked to confirm ("Got it"). The
+-- confirmation is stored as a reaction with emoji 'ack'.
+alter table public.messages drop constraint if exists messages_kind_check;
+alter table public.messages add constraint messages_kind_check check (kind in ('user', 'system', 'announcement'));
+
+-- A quick status for the day ("On site", "Off today"), cleared the next day.
+alter table public.staff add column if not exists status_emoji text;
+alter table public.staff add column if not exists status_text text;
+alter table public.staff add column if not exists status_date date;
+
+-- A task can belong to a retreat group (its prep list).
+alter table public.tasks add column if not exists retreat_group_id uuid references public.retreat_groups (id) on delete set null;
+create index if not exists tasks_retreat_group_idx on public.tasks (retreat_group_id);
+
+-- ---------------------------------------------------------------------------
+-- Chat hardening: writes must target a channel or message the writer can
+-- see (so nobody posts into a direct message they're not in, or reacts to
+-- another camp's messages), posts can't claim to be from someone else, and
+-- the only change allowed to a posted message is linking a task.
+-- ---------------------------------------------------------------------------
+drop policy if exists "Members post in their camp" on public.messages;
+create policy "Members post in their camp" on public.messages
+  for insert with check (
+    camp_id = public.user_camp_id()
+    and (author_id is null or author_id = auth.uid())
+    and exists (select 1 from public.channels c where c.id = channel_id and c.camp_id = messages.camp_id)
+  );
+
+revoke update on public.messages from anon, authenticated;
+grant update (task_id) on public.messages to authenticated;
+
+drop policy if exists "People manage their own reactions" on public.message_reactions;
+create policy "People manage their own reactions" on public.message_reactions
+  for all using (user_id = auth.uid())
+  with check (
+    user_id = auth.uid()
+    and exists (select 1 from public.messages m where m.id = message_id)
+  );
+
+drop policy if exists "People manage their own read markers" on public.channel_reads;
+create policy "People manage their own read markers" on public.channel_reads
+  for all using (user_id = auth.uid())
+  with check (
+    user_id = auth.uid()
+    and exists (select 1 from public.channels c where c.id = channel_id)
+  );
+
+-- Routines are director-only for writes too: the policy above checks the
+-- role on existing rows but its WITH CHECK (used for inserts) didn't.
+drop policy if exists "Directors manage their camp routines" on public.routines;
+create policy "Directors manage their camp routines" on public.routines
+  for all using (camp_id = public.user_camp_id() and public.is_camp_director())
+  with check (camp_id = public.user_camp_id() and public.is_camp_director());
+
+-- ---------------------------------------------------------------------------
+-- calendar_accounts: one connected Google Calendar per camp. Confirmed
+-- retreat groups are written to it as all-day events so everyone on staff
+-- sees who is on site, and the dashboard lists what's coming up. Tokens carry
+-- only the calendar.events scope (no mail access). Like gmail_accounts, tokens
+-- are member-readable for now; Milestone 3 moves them to a service-role table.
+-- ---------------------------------------------------------------------------
+create table if not exists public.calendar_accounts (
+  camp_id uuid primary key references public.camps (id) on delete cascade,
+  email text not null,
+  calendar_id text not null default 'primary',
+  access_token text not null,
+  refresh_token text not null,
+  expires_at timestamptz not null,
+  connected_by uuid references auth.users (id) on delete set null,
+  last_synced_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.calendar_accounts enable row level security;
+
+-- Members read it and keep it fresh (token refresh and last_synced_at happen
+-- whenever anyone saves a retreat group); only directors connect or remove it.
+drop policy if exists "Members manage their camp calendar account" on public.calendar_accounts;
+drop policy if exists "Members read their camp calendar account" on public.calendar_accounts;
+create policy "Members read their camp calendar account" on public.calendar_accounts
+  for select using (camp_id = public.user_camp_id());
+drop policy if exists "Members refresh their camp calendar account" on public.calendar_accounts;
+create policy "Members refresh their camp calendar account" on public.calendar_accounts
+  for update using (camp_id = public.user_camp_id())
+  with check (camp_id = public.user_camp_id());
+drop policy if exists "Directors connect a calendar" on public.calendar_accounts;
+create policy "Directors connect a calendar" on public.calendar_accounts
+  for insert with check (camp_id = public.user_camp_id() and public.is_camp_director());
+drop policy if exists "Directors disconnect a calendar" on public.calendar_accounts;
+create policy "Directors disconnect a calendar" on public.calendar_accounts
+  for delete using (camp_id = public.user_camp_id() and public.is_camp_director());
+
+-- Staff may only refresh tokens and the sync time, not repoint the account.
+revoke update on public.calendar_accounts from anon, authenticated;
+grant update (access_token, refresh_token, expires_at, last_synced_at, updated_at)
+  on public.calendar_accounts to authenticated;
+
+drop trigger if exists calendar_accounts_set_updated_at on public.calendar_accounts;
+create trigger calendar_accounts_set_updated_at
+  before update on public.calendar_accounts
+  for each row execute procedure public.set_updated_at();
+
+-- The calendar event a confirmed retreat group was written to.
+alter table public.retreat_groups add column if not exists google_event_id text;

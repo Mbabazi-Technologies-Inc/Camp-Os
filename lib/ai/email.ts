@@ -1,6 +1,6 @@
+import { todayISODate } from "@/lib/dates";
 import { getOpenAIClient } from "@/lib/openai";
 import { isOpenAIConfigured } from "@/lib/env";
-import { getSeason } from "@/lib/season";
 import { analyzeOffline } from "./offline";
 import type { EmailCategory, EmailUrgency } from "@/lib/supabase/database.types";
 
@@ -30,21 +30,13 @@ const EMAIL_CATEGORIES: EmailCategory[] = [
   "billing",
   "logistics",
   "general",
-  "retreat",
-  "registration",
-  "donation",
   "other",
 ];
 
 const EMAIL_URGENCIES: EmailUrgency[] = ["low", "medium", "high", "urgent"];
 
-const SYSTEM_PROMPT = `You are an administrative assistant to the director of a Christian \
-camp and retreat centre. The camp runs children's sessions in the summer and hosts retreat \
-and rental groups the rest of the year, so the inbox changes with the season: camper \
-logistics in summer, and retreat bookings, next-season registration, hiring and donations \
-in fall, winter and spring. Write for whoever is actually emailing - a parent, a group \
-leader booking a weekend, or a donor. \
-You triage incoming emails and draft calm, warm, professional replies. \
+const SYSTEM_PROMPT = `You are an administrative assistant to a summer camp director. \
+You triage incoming parent/guardian emails and draft calm, warm, professional replies. \
 Ground every factual claim (dates, times, prices, rules) only in the camp knowledge base \
 provided to you. If the knowledge base doesn't cover something the email asks about, say \
 so plainly in the draft and note that the director will confirm - never invent camp-specific \
@@ -83,13 +75,10 @@ export async function analyzeAndDraftEmail(input: {
   const client = getOpenAIClient();
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-  const today = new Date().toISOString().slice(0, 10);
-
-  const season = getSeason();
+  const today = todayISODate();
 
   const userMessage = [
     `TODAY'S DATE: ${today}`,
-    `SEASON: ${season.label} - the office is mostly handling ${season.focus}.`,
     `CAMP KNOWLEDGE BASE:\n${buildKnowledgeBaseText(input.knowledgeBase)}`,
     input.senderName ? `SENDER NAME: ${input.senderName}` : null,
     input.subject ? `SUBJECT: ${input.subject}` : null,

@@ -8,6 +8,12 @@ replies grounded in your own camp knowledge base, but every reply waits for you 
 edit, and approve it. Even with Gmail connected, approved replies land in your Gmail
 **drafts** folder - the app has no send permission at all.
 
+## Public website
+
+The Mill Stream Bible Camp public website used to live in this repository. It now has its
+own repository, `Mbabazi-Technologies-Inc/millstream-website`. This repository is only the
+CampFlow camp-office app.
+
 ## Tech stack
 
 - Next.js (App Router) + TypeScript
@@ -26,12 +32,12 @@ edit, and approve it. Even with Gmail connected, approved replies land in your G
   and urgency, summarizes it, drafts a reply from the knowledge base, and suggests a
   follow-up task you can accept with one tap. Edit, regenerate with instructions, then
   approve or dismiss.
-- **Google Calendar** (optional): connect the camp's calendar in Settings. Confirmed
-  retreat bookings are written to it as all-day events (enquiries are not, and cancelling
-  removes the event), and the dashboard shows what's coming up.
 - **Gmail integration** (optional): connect the camp inbox in Settings. "Sync inbox"
   imports recent primary-inbox emails and triages them; approving a reply files it into
   the Gmail drafts folder in the right thread.
+- **Google Calendar** (optional): a director connects the camp calendar in Settings.
+  Confirmed retreat groups with dates become all-day events (inquiries and tentative holds
+  don't; cancelling removes the event), and Home shows what's coming up.
 - **Knowledge base**: rules, pickup times, packing lists, and policies - the only source
   of camp facts the AI may use. New camps can start from a 10-entry starter pack and
   edit the placeholders.
@@ -69,6 +75,8 @@ every screen, and `/setup` shows what to connect when you want to keep real reco
 
    For Gmail: create OAuth 2.0 credentials in Google Cloud Console, enable the Gmail API,
    and add `<your-app-url>/api/gmail/callback` as an authorized redirect URI.
+   For Google Calendar: enable the Google Calendar API on the same OAuth client and add
+   `<your-app-url>/api/calendar/callback` as another redirect URI.
 
 4. Run the dev server:
 
@@ -114,13 +122,39 @@ See [`mobile/README.md`](mobile/README.md) for troubleshooting (firewall, Codesp
 tunnel mode, Expo Go version mismatches, Windows `node_modules` errors) and for building a
 real App Store / Play Store app with `eas build`.
 
+## Billing (Stripe)
+
+One plan: CA$79/month per camp, with a 30-day free trial that needs no card. Without
+Stripe keys, `/settings/billing` says "Billing not configured" and nothing is limited.
+To turn it on:
+
+1. In Stripe, create a product with a recurring CA$79/month price and copy its
+   `price_...` id into `STRIPE_PRICE_ID`. To change the price later, create a new price
+   and update this env var.
+2. Add a webhook endpoint at `<your-app-url>/api/stripe/webhook` for
+   `checkout.session.completed`, `customer.subscription.updated` and
+   `customer.subscription.deleted`; put its signing secret in `STRIPE_WEBHOOK_SECRET`.
+3. Turn on the Customer Portal (Settings -> Billing -> Customer portal).
+4. Set `STRIPE_SECRET_KEY` and `SUPABASE_SERVICE_ROLE_KEY` (server-only).
+
+When a trial ends without an active subscription, the camp becomes read-only: nothing is
+deleted, and billing and sign-out keep working.
+
+## Checks
+
+`npm run verify` runs everything CI runs: lint, typecheck, unit tests, build, the database
+row-level-security tests (`npm run test:db`, needs PostgreSQL server binaries) and the
+Playwright end-to-end tests in demo mode (`npm run test:e2e`; run
+`npx playwright install chromium` once first). The launch plan lives in `SPEC.md`.
+
 ## Project structure
 
 - `app/login` - sign in / sign up (signup auto-creates a camp or accepts an invite)
 - `app/(app)` - authenticated app shell and feature pages: `dashboard`, `tasks`,
   `email-assistant`, `knowledge-base`, `people`, `settings`
 - `app/api/gmail`, `app/api/calendar` - Google OAuth connect/callback routes
-- `lib/google.ts` - shared OAuth; `lib/calendar.ts` - Calendar REST client
+- `lib/google.ts` - shared Google OAuth; `lib/calendar.ts` - Calendar REST client;
+  `lib/retreat-calendar.ts` - puts confirmed retreat groups on the camp calendar
 - `lib/auth.ts` - `requireCamp()`: resolves the signed-in user's camp for every action
 - `lib/ai/email.ts` - OpenAI triage + draft + suggested-task call (structured output)
 - `lib/gmail.ts` / `lib/gmail-account.ts` - Gmail REST client and token refresh
