@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireWritableCamp } from "@/lib/auth";
 import { field } from "@/lib/form";
+import { brand } from "@/lib/brand";
 
 export async function updateCampName(formData: FormData) {
   const { supabase, campId, role } = await requireWritableCamp();
@@ -51,7 +52,7 @@ export async function inviteMember(formData: FormData) {
   redirect(
     "/settings?notice=" +
       encodeURIComponent(
-        `Invite created. When ${email} signs up for CampFlow with that email, they'll join your camp automatically.`
+        `Invite created. When ${email} signs up for ${brand.name} with that email, they'll join your camp automatically.`
       )
   );
 }

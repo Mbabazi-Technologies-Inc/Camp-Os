@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { brand, TITLE_TEMPLATE } from "@/lib/brand";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 const geistSans = Geist({
@@ -14,20 +15,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mill Stream Camp Office",
-  description: "The camp director's calm administrative assistant.",
-  manifest: "/manifest.json",
+  title: { default: brand.name, template: TITLE_TEMPLATE },
+  description: brand.tagline,
+  applicationName: brand.name,
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Mill Stream",
-  },
-  icons: {
-    icon: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: "/icons/apple-touch-icon.png",
+    title: brand.name,
   },
 };
 
@@ -35,7 +29,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#14586b",
+  themeColor: brand.colors.primary,
 };
 
 export default function RootLayout({

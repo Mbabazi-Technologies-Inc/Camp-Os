@@ -50,7 +50,7 @@ export function billingState(camp: CampBillingFields, now: Date = new Date()): B
 }
 
 /**
- * Collapses Stripe's subscription statuses into the four CampFlow stores.
+ * Collapses Stripe's subscription statuses into the four statuses the app stores.
  * Anything that means "money isn't coming in" but might recover becomes
  * past_due; anything final becomes canceled.
  */

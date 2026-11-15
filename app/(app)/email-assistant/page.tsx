@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireCamp } from "@/lib/auth";
 import { syncGmailInbox } from "./actions";
@@ -10,6 +11,8 @@ import { LinkButton } from "@/components/ui/Button";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { EMAIL_URGENCY_LABELS, EMAIL_URGENCY_STYLES } from "@/lib/labels";
 import { Plus, Check, X, RefreshCw, Mail } from "lucide-react";
+
+export const metadata: Metadata = { title: "Email" };
 
 export const dynamic = "force-dynamic";
 

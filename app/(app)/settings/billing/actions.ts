@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireCamp } from "@/lib/auth";
 import { isStripeConfigured } from "@/lib/env";
 import { getStripe } from "@/lib/stripe/client";
+import { brand } from "@/lib/brand";
 
 // Billing actions deliberately use requireCamp, not requireWritableCamp: a
 // read-only camp must still be able to subscribe.
@@ -41,7 +42,7 @@ export async function startCheckout() {
   const origin = await appOrigin();
 
   // Subscribing during the free trial shouldn't cut it short: Stripe starts
-  // charging when the CampFlow trial ends. Stripe needs a trial end at least
+  // charging when our own trial ends. Stripe needs a trial end at least
   // 48 hours out, so very late in the trial billing simply starts now.
   const trialEnd = camp ? Math.floor(new Date(camp.trial_ends_at).getTime() / 1000) : 0;
   const keepTrial = trialEnd > Math.floor(Date.now() / 1000) + 49 * 60 * 60;
@@ -54,6 +55,7 @@ export async function startCheckout() {
       client_reference_id: campId,
       metadata: { camp_id: campId },
       subscription_data: {
+        description: `${brand.name} subscription`,
         metadata: { camp_id: campId },
         ...(keepTrial ? { trial_end: trialEnd } : {}),
       },

@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { createEmailDraft } from "../actions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Input, Textarea, Label } from "@/components/ui/Field";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+
+export const metadata: Metadata = { title: "New email" };
 
 export default async function NewEmailPage({
   searchParams,

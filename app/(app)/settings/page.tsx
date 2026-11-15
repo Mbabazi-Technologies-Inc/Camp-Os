@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { requireCamp } from "@/lib/auth";
 import { isGmailConfigured } from "@/lib/gmail";
 import { updateCampName, inviteMember, revokeInvite, disconnectGmail } from "./actions";
@@ -10,6 +11,9 @@ import { SubmitButton } from "@/components/ui/SubmitButton";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { formatRelativeTime } from "@/lib/dates";
 import { Mail, UserPlus } from "lucide-react";
+import { brand } from "@/lib/brand";
+
+export const metadata: Metadata = { title: "Settings" };
 
 export const dynamic = "force-dynamic";
 
@@ -121,7 +125,7 @@ export default async function SettingsPage({
                 approved replies straight into your Gmail drafts folder.
               </p>
               <p className="text-xs text-muted mt-1">
-                CampFlow only asks for read and draft permissions - it can never send email
+                {brand.name} only asks for read and draft permissions - it can never send email
                 on your behalf.
               </p>
               <div className="mt-3">
@@ -183,7 +187,7 @@ export default async function SettingsPage({
               </SubmitButton>
             </form>
             <p className="text-xs text-muted mt-2">
-              When they create a CampFlow account with this email, they&apos;ll join your camp
+              When they create a {brand.name} account with this email, they&apos;ll join your camp
               automatically as staff.
             </p>
 

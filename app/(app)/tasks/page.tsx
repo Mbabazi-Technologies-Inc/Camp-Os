@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { createTask } from "./actions";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -7,6 +8,8 @@ import { Input, Select, Label } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { TaskItem } from "@/components/tasks/TaskItem";
 import { TASK_PRIORITY_LABELS } from "@/lib/labels";
+
+export const metadata: Metadata = { title: "Tasks" };
 
 export const dynamic = "force-dynamic";
 

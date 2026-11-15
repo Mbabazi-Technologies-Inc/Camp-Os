@@ -7,7 +7,7 @@ import { campBillingStore } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Stripe -> CampFlow. The signature is checked against the raw body before
+// Stripe -> this app. The signature is checked against the raw body before
 // anything is read from it.
 export async function POST(request: NextRequest) {
   if (!isStripeConfigured()) {

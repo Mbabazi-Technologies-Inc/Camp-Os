@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { Card } from "@/components/ui/Card";
 import { BrandMark } from "@/components/Brand";
 import { isGoogleConfigured, isOpenAIConfigured, isSupabaseConfigured } from "@/lib/env";
 import { Check, X, CircleDashed } from "lucide-react";
+
+export const metadata: Metadata = { title: "Set up" };
 
 // Reads the environment on each request so a restart with new values shows up.
 export const dynamic = "force-dynamic";
