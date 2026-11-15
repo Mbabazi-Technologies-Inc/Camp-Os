@@ -1,7 +1,7 @@
 import { cache } from "react";
 import type { Database } from "@/lib/supabase/database.types";
 import type { CampContext } from "@/lib/auth";
-import { requireCamp } from "@/lib/auth";
+import { getCampBilling, requireCamp } from "@/lib/auth";
 
 type Routine = Database["public"]["Tables"]["routines"]["Row"];
 type Staff = Database["public"]["Tables"]["staff"]["Row"];
@@ -147,6 +147,9 @@ export async function generateRoutineTasks(
 /** Once per request: make sure today's routine tasks exist before anything lists tasks. */
 export const ensureRoutineTasks = cache(async (isoDate: string) => {
   const { supabase, campId } = await requireCamp();
+  // A read-only camp (trial over, not subscribed) gets no new rows, routine
+  // tasks included.
+  if ((await getCampBilling(supabase, campId))?.readOnly) return;
   await generateRoutineTasks(supabase, campId, isoDate);
 });
 

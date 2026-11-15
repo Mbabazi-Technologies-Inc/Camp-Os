@@ -51,7 +51,7 @@ export default async function AppLayout({
 
   // Today's routine tasks are created on first visit each day, before anything counts them.
   const today = todayISODate();
-  if (profile?.camp_id && !readOnly) await ensureRoutineTasks(today);
+  if (profile?.camp_id) await ensureRoutineTasks(today);
   const me = profile?.camp_id ? await getMyStaff() : null;
   const isDirector = profile?.role === "director";
   const mineFilter = myTasksFilter(isDirector, me);
