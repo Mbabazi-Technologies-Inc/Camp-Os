@@ -126,7 +126,7 @@ export default function App() {
             <WebView
               key={attempt}
               ref={webViewRef}
-              // The root URL is the public website; the shell opens the camp office.
+              // Open the camp office directly.
               source={{ uri: `${url.replace(/\/$/, '')}/dashboard` }}
               style={styles.webview}
               onError={(e) => {

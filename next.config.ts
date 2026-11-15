@@ -22,8 +22,6 @@ const nextConfig: NextConfig = {
   },
   images: {
     unoptimized: exfat,
-    // Placeholder stock photos for the public website (see lib/site/photos.ts).
-    remotePatterns: [{ protocol: "https", hostname: "images.pexels.com" }],
   },
 };
 

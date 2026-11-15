@@ -1,6 +1,7 @@
-import { camp } from "@/lib/site/content";
+const camp = { name: "Mill Stream Bible Camp & Retreat Centre", founded: 1946 };
 
-// A round camp-patch emblem: the camp name set around a ring, with pines and
+// The camp's brand mark for the staff app (the public website lives in its own
+// repository, millstream-website). A round camp-patch emblem: the camp name set around a ring, with pines and
 // the stream in the middle.
 export function CampBadge({ className = "" }: { className?: string }) {
   return (

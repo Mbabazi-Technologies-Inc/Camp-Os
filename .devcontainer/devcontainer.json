@@ -9,7 +9,7 @@
   "forwardPorts": [3000],
   "portsAttributes": {
     "3000": {
-      "label": "Mill Stream website",
+      "label": "CampFlow camp office",
       "onAutoForward": "openBrowser"
     }
   }

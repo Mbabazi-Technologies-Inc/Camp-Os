@@ -110,36 +110,7 @@ body {
   animation: shimmer 1.6s ease-in-out infinite;
 }
 
-/* Public website: a visible focus ring for keyboard users. */
-.paper :focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 3px;
-}
-
-/* Public website: content eases up into view as it scrolls in. Browsers
-   without scroll-driven animations simply show it in place. */
-@keyframes reveal {
-  from {
-    opacity: 0;
-    translate: 0 1.75rem;
-  }
-  to {
-    opacity: 1;
-    translate: 0 0;
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  @supports (animation-timeline: view()) {
-    .reveal {
-      animation: reveal linear both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 30%;
-    }
-  }
-}
-
-/* Public website: a faint paper grain over the page background. */
+/* A faint paper grain over the page background. */
 .paper {
   background-color: var(--background);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.24 0 0 0 0 0.3 0 0 0 0 0.27 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");

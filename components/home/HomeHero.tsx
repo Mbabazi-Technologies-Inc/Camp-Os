@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Flame, Mail, Sun, Trees, type LucideIcon } from "lucide-react";
-import { Treeline } from "@/components/site/Treeline";
+import { Treeline } from "@/components/brand/Treeline";
 
 export type HeroChip = { label: string; href: string; icon: LucideIcon; tone?: "urgent" | "normal" };
 export type HeroStat = { label: string; value: string; sub?: string; href: string; progress?: number; alert?: boolean };

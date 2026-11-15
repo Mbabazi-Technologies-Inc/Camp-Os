@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { signOut } from "@/app/login/actions";
 import { BrandMark } from "@/components/Brand";
-import { Treeline } from "@/components/site/Treeline";
+import { Treeline } from "@/components/brand/Treeline";
 import type { SidebarChannel } from "@/lib/chat";
 import type { Season } from "@/lib/season";
 import { QuickSwitcherButton } from "./QuickSwitcher";
