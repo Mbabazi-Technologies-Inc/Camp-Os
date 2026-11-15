@@ -1,4 +1,5 @@
 import { requireCamp } from "@/lib/auth";
+import { Settings2 as Settings2Icon } from "lucide-react";
 import { isGmailConfigured } from "@/lib/gmail";
 import { updateCampName, inviteMember, revokeInvite, disconnectGmail } from "./actions";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -48,7 +49,7 @@ export default async function SettingsPage({
 
   return (
     <div>
-      <PageHeader title="Settings" description="Your camp, your team, and connections." />
+      <PageHeader icon={Settings2Icon} eyebrow="Camp office" title="Settings" description="Your camp, your team, and connections." />
 
       {notice && (
         <p className="mb-4 rounded-lg bg-primary-soft text-primary text-sm px-3 py-2">{notice}</p>

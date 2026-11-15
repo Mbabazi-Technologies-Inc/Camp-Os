@@ -1,4 +1,5 @@
 import { createEmailDraft } from "../actions";
+import { MailPlus as MailPlusIcon } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Input, Textarea, Label } from "@/components/ui/Field";
@@ -13,7 +14,7 @@ export default async function NewEmailPage({
 
   return (
     <div>
-      <PageHeader
+      <PageHeader icon={MailPlusIcon} eyebrow="Email assistant"
         title="New email"
         description="Paste in the email you received. The AI will suggest a category, urgency, and a draft reply for you to review."
       />

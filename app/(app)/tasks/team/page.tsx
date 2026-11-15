@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { UsersRound as UsersRoundIcon } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AlertTriangle, CalendarClock, CheckCircle2, Pause, Play, Repeat, Trash2 } from "lucide-react";
 import { requireCamp } from "@/lib/auth";
@@ -40,7 +41,8 @@ function runWindow(routine: Routine): string {
   return `${fmtDay(routine.starts_on)} – ${fmtDay(routine.ends_on)}`;
 }
 
-export default async function TeamTasksPage() {
+export default async function TeamTasksPage({ searchParams }: { searchParams: Promise<{ to?: string }> }) {
+  const { to } = await searchParams;
   const { supabase, role } = await requireCamp();
   if (role !== "director") redirect("/tasks");
 
@@ -106,11 +108,11 @@ export default async function TeamTasksPage() {
 
   return (
     <div>
-      <PageHeader title="Team tasks" description={`${longDate} · everyone's tasks, as they're ticked off`} />
+      <PageHeader icon={UsersRoundIcon} eyebrow="Tasks" title="Team tasks" description={`${longDate} · everyone's tasks, as they're ticked off`} />
       <TaskTabs teamAlert={overdue.filter((t) => t.assigned_to !== me?.id).length} />
 
-      <AddPanel label="Send a task">
-        <SendTaskForm staff={active} teams={teams} today={today} seasonEnd={seasonEndFor()} />
+      <AddPanel label="Send a task" defaultOpen={Boolean(to)}>
+        <SendTaskForm staff={active} teams={teams} today={today} seasonEnd={seasonEndFor()} defaultTo={to ?? ""} />
       </AddPanel>
 
       {/* Today at a glance */}

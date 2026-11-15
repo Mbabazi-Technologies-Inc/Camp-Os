@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { UsersRound as UsersRoundIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createStaff } from "../actions";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -38,7 +39,7 @@ export default async function StaffPage({
 
   return (
     <div>
-      <PageHeader title="Staff" description="Basic records for your camp staff." />
+      <PageHeader icon={UsersRoundIcon} eyebrow="People" title="Staff" description="Basic records for your camp staff." />
 
       <AddPanel label="Add staff member">
         <form action={createStaff} className="space-y-3">

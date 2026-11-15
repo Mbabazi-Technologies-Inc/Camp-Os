@@ -90,7 +90,7 @@
   for (const [fill, src, label, w, mode] of shirts) {
     const W = 400, H = 360;
     const lw = W * w;
-    const ratio = mode === "horizontal" ? 0.36 : mode === "stacked" ? 1.013 : 1;
+    const ratio = mode === "horizontal" ? 200 / 582 : mode === "stacked" ? 298 / 329 : 1;
     const lh = lw * ratio;
     const x = mode === "left" ? 232 : (W - lw) / 2;
     const y = mode === "left" ? 112 : 118 + (mode === "horizontal" ? 30 : 0);

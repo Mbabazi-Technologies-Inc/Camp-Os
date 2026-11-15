@@ -153,6 +153,7 @@ const COLUMN_DEFAULTS: Record<string, DemoRow> = {
     due_time: null,
     completed_at: null,
     checklist: null,
+    retreat_group_id: null,
   },
   knowledge_base: { category: "other" },
   guardians: { email: null, phone: null, relationship: null, notes: null },
@@ -167,6 +168,9 @@ const COLUMN_DEFAULTS: Record<string, DemoRow> = {
     under_18: false,
     access_ends: null,
     profile_id: null,
+    status_emoji: null,
+    status_text: null,
+    status_date: null,
   },
   routines: {
     created_by: null,
@@ -209,8 +213,9 @@ const COLUMN_DEFAULTS: Record<string, DemoRow> = {
     status: "pending",
   },
   gmail_accounts: { last_synced_at: null, connected_by: null },
-  channels: { kind: "standing", description: null, retreat_group_id: null, archived: false, created_by: null },
-  messages: { author_id: null, author_name: null, kind: "user", task_id: null },
+  channels: { kind: "standing", description: null, retreat_group_id: null, members: null, pinned_message_id: null, archived: false, created_by: null },
+  message_reactions: { user_name: null },
+  messages: { author_id: null, author_name: null, kind: "user", task_id: null, parent_id: null },
 };
 
 export class DemoQuery implements PromiseLike<DemoResult> {

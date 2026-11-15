@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Mail as MailIcon } from "lucide-react";
 import { requireCamp } from "@/lib/auth";
 import { syncGmailInbox } from "./actions";
 import { formatRelativeTime } from "@/lib/dates";
@@ -45,7 +46,7 @@ export default async function EmailAssistantPage({
 
   return (
     <div>
-      <PageHeader
+      <PageHeader icon={MailIcon} eyebrow="Email assistant"
         title="Email assistant"
         description="AI triage and draft replies. Nothing ever sends without your approval."
         action={

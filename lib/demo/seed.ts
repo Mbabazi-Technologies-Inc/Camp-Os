@@ -44,6 +44,9 @@ function staffRow(
     under_18: false,
     access_ends: null,
     profile_id: null,
+    status_emoji: null,
+    status_text: null,
+    status_date: null,
     created_at: isoTime(-60 * 24 * 40),
     updated_at: isoTime(-60 * 24 * 40),
     ...extra,
@@ -82,7 +85,17 @@ const WALKTHROUGH_STEPS = [
   "Anything broken logged as a task",
 ];
 
-function channelRow(id: string, name: string, kind: string, description: string, groupId: string | null = null): DemoRow {
+// Same naming as lib/chat directChannelName (not imported, to avoid a cycle).
+function directName(a: string, b: string): string {
+  return `dm-${[a, b].sort().join("-")}`;
+}
+
+// A status that only lasts for today.
+function statusToday(emoji: string, text: string): DemoRow {
+  return { status_emoji: emoji, status_text: text, status_date: isoDate(0) };
+}
+
+function channelRow(id: string, name: string, kind: string, description: string | null, groupId: string | null = null): DemoRow {
   return {
     id,
     camp_id: DEMO_CAMP_ID,
@@ -90,6 +103,8 @@ function channelRow(id: string, name: string, kind: string, description: string,
     kind,
     description,
     retreat_group_id: groupId,
+    members: null,
+    pinned_message_id: null,
     archived: false,
     created_by: DEMO_USER_ID,
     created_at: isoTime(-60 * 24 * 60),
@@ -108,7 +123,8 @@ function msg(
   authorName: string,
   body: string,
   offsetMinutes: number,
-  kind: "user" | "system" = "user"
+  kind: "user" | "system" | "announcement" = "user",
+  parentId: string | null = null
 ): DemoRow {
   messageCount += 1;
   return {
@@ -120,6 +136,7 @@ function msg(
     kind,
     body,
     task_id: null,
+    parent_id: parentId,
     created_at: isoTime(offsetMinutes),
   };
 }
@@ -301,6 +318,7 @@ export function buildSeed(): Record<string, DemoRow[]> {
         source_email_id: null,
         assigned_to: "demo-staff-5",
         routine_id: null,
+        retreat_group_id: "demo-group-2",
         completed_at: null,
         created_at: isoTime(-120),
         updated_at: isoTime(-120),
@@ -559,6 +577,7 @@ export function buildSeed(): Record<string, DemoRow[]> {
       staffRow("demo-staff-1", "Dana", "Brooks", "Program Director", "Office", {
         email: "dana@millstream.camp",
         phone: "705-555-0110",
+        ...statusToday("🌙", "Off today"),
       }),
       staffRow("demo-staff-5", "Jordan", "Reyes", "Retreat Coordinator", "Office", {
         email: "jordan@millstream.camp",
@@ -566,6 +585,7 @@ export function buildSeed(): Record<string, DemoRow[]> {
       }),
       staffRow("demo-staff-6", "Sam", "Okafor", "Facilities Manager", "Maintenance", {
         phone: "705-555-0142",
+        ...statusToday("🔧", "Fixing the lodge furnace"),
       }),
       staffRow("demo-staff-7", "Rosa", "Bell", "Kitchen Lead", "Kitchen", {
         email: "kitchen@millstream.camp",
@@ -597,11 +617,19 @@ export function buildSeed(): Record<string, DemoRow[]> {
     ],
 
     channels: [
+      channelRow("demo-chan-all", "all-staff", "standing", "Announcements for everyone on staff."),
       channelRow("demo-chan-office", "office", "standing", "Day-to-day office chat for the year-round team."),
       channelRow("demo-chan-maintenance", "maintenance", "standing", "Repairs, grounds and anything broken."),
       channelRow("demo-chan-kitchen", "kitchen", "standing", "Menus, headcounts and dietary needs."),
-      channelRow("demo-chan-grace", "grace-fellowship", "retreat_group", "Everything about Grace Fellowship youth retreat.", "demo-group-1"),
+      {
+        ...channelRow("demo-chan-grace", "grace-fellowship", "retreat_group", "Everything about Grace Fellowship youth retreat.", "demo-group-1"),
+        pinned_message_id: "demo-msg-pin",
+      },
       channelRow("demo-chan-lakeview", "lakeview-grade-6", "retreat_group", "Everything about Lakeview Public School - Grade 6.", "demo-group-2"),
+      {
+        ...channelRow("demo-chan-dm-jordan", directName(DEMO_USER_ID, staffUser("demo-staff-5")), "direct", null),
+        members: [DEMO_USER_ID, staffUser("demo-staff-5")],
+      },
     ],
 
     messages: [
@@ -625,6 +653,48 @@ export function buildSeed(): Record<string, DemoRow[]> {
       // #lakeview-grade-6
       msg("demo-chan-lakeview", null, "Camp office", "Lakeview Public School - Grade 6 is confirmed for 64 people. This channel is for everything about their stay.", -60 * 24 * 6, "system"),
       msg("demo-chan-lakeview", staffUser("demo-staff-5"), "Jordan Reyes", "Teachers want the night hike on Saturday. I'll check the forecast closer to the date.", -60 * 9),
+
+      // Replies in a thread under Alex's checkout question (demo-msg-6)
+      msg("demo-chan-grace", staffUser("demo-staff-5"), "Jordan Reyes", "Marcus says 2pm would really help, their bus can't come earlier.", -60 * 2 + 10, "user", "demo-msg-6"),
+      msg("demo-chan-grace", staffUser("demo-staff-6"), "Sam Okafor", "Fine by me, I'll start the lodge turnover after 2.", -60 * 2 + 20, "user", "demo-msg-6"),
+
+      // A direct message
+      msg("demo-chan-dm-jordan", staffUser("demo-staff-5"), "Jordan Reyes", "Quick one: can I take Friday afternoon off? The Lakeview invoice will be sent before I go.", -35),
+
+      // An announcement everyone is asked to confirm.
+      {
+        ...msg(
+          "demo-chan-all",
+          DEMO_USER_ID,
+          "Alex Rivera",
+          "Fire drill Thursday at 10am. Everyone meets at the flagpole; groups on site will join us. Please read the updated evacuation map in Knowledge before then.",
+          -60 * 5,
+          "announcement"
+        ),
+        id: "demo-msg-announce",
+      },
+
+      // Pinned in #grace-fellowship (listed last so the numbered ids above don't shift).
+      {
+        ...msg(
+          "demo-chan-grace",
+          staffUser("demo-staff-5"),
+          "Jordan Reyes",
+          "Weekend plan: arrive Fri 6pm (dinner 6:30) · campfire Sat 8pm · checkout Sun 2pm · leader Marcus Lee 705-555-0188",
+          -60 * 48
+        ),
+        id: "demo-msg-pin",
+      },
+    ],
+
+    // Quick acknowledgements instead of "ok" messages.
+    message_reactions: [
+      { message_id: "demo-msg-announce", user_id: staffUser("demo-staff-6"), user_name: "Sam Okafor", emoji: "ack", created_at: isoTime(-60 * 4) },
+      { message_id: "demo-msg-announce", user_id: staffUser("demo-staff-7"), user_name: "Rosa Bell", emoji: "ack", created_at: isoTime(-60 * 3) },
+      { message_id: "demo-msg-4", user_id: DEMO_USER_ID, user_name: DEMO_FULL_NAME, emoji: "👍", created_at: isoTime(-60 * 23) },
+      { message_id: "demo-msg-4", user_id: staffUser("demo-staff-5"), user_name: "Jordan Reyes", emoji: "👍", created_at: isoTime(-60 * 23) },
+      { message_id: "demo-msg-7", user_id: DEMO_USER_ID, user_name: DEMO_FULL_NAME, emoji: "✅", created_at: isoTime(-45) },
+      { message_id: "demo-msg-9", user_id: DEMO_USER_ID, user_name: DEMO_FULL_NAME, emoji: "👀", created_at: isoTime(-60 * 3) },
     ],
 
     // Alex has read everything up to an hour ago, so the newest messages show as unread.

@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 import { requireCamp } from "@/lib/auth";
 import { field } from "@/lib/form";
 import { withSaved } from "@/lib/saved";
-import { channelSlug, markChannelRead, postSystemMessage } from "@/lib/chat";
+import { channelSlug, directChannelName, loginIdFor, markChannelRead, postSystemMessage } from "@/lib/chat";
+import { getMyStaff } from "@/lib/routines";
+import { todayISODate } from "@/lib/dates";
 import type { TaskPriority } from "@/lib/supabase/database.types";
 
 function refreshChat() {
@@ -14,9 +16,20 @@ function refreshChat() {
 }
 
 export async function postMessage(channelId: string, formData: FormData) {
-  const { supabase, campId, userId, fullName, userEmail } = await requireCamp();
+  await post(channelId, null, formData);
+}
+
+/** A reply in a thread, so side conversations don't fill the channel. */
+export async function postReply(channelId: string, parentId: string, formData: FormData) {
+  await post(channelId, parentId, formData);
+}
+
+async function post(channelId: string, parentId: string | null, formData: FormData) {
+  const { supabase, campId, userId, fullName, userEmail, role } = await requireCamp();
   const body = field(formData, "body").trim();
   if (!body) return;
+  // Only the director posts announcements, and never as a thread reply.
+  const announce = role === "director" && !parentId && field(formData, "announce") === "on";
 
   await supabase.from("messages").insert({
     camp_id: campId,
@@ -24,6 +37,8 @@ export async function postMessage(channelId: string, formData: FormData) {
     author_id: userId,
     author_name: fullName ?? userEmail ?? "Staff",
     body: body.slice(0, 4000),
+    parent_id: parentId,
+    kind: announce ? "announcement" : "user",
   });
   await markChannelRead(supabase, channelId, userId);
   refreshChat();
@@ -40,7 +55,11 @@ export async function createTaskFromMessage(messageId: string, formData: FormDat
 
   const { data: message } = await supabase.from("messages").select("*").eq("id", messageId).maybeSingle();
   if (!message) return;
-  const { data: channel } = await supabase.from("channels").select("name").eq("id", message.channel_id).maybeSingle();
+  const { data: channel } = await supabase
+    .from("channels")
+    .select("name, retreat_group_id")
+    .eq("id", message.channel_id)
+    .maybeSingle();
 
   const assignedTo = field(formData, "assigned_to").trim() || null;
   const { data: task } = await supabase
@@ -54,6 +73,8 @@ export async function createTaskFromMessage(messageId: string, formData: FormDat
       due_time: field(formData, "due_time").trim() || null,
       priority: (field(formData, "priority") || "medium") as TaskPriority,
       assigned_to: assignedTo,
+      // Made in a group's chat: it's part of that group's prep.
+      retreat_group_id: channel?.retreat_group_id ?? null,
     })
     .select()
     .single();
@@ -91,4 +112,117 @@ export async function createChannel(formData: FormData) {
   }
   refreshChat();
   redirect(`/chat/${name}`);
+}
+
+/**
+ * Opens (or creates) a one-to-one conversation with a staff member.
+ * Safeguarding: nobody messages an under-18 staff member one-on-one, and
+ * under-18 staff can't start one either. Those conversations stay in channels.
+ */
+export async function startDirectMessage(staffId: string) {
+  const { supabase, campId, userId } = await requireCamp();
+  const [{ data: member }, me] = await Promise.all([
+    supabase.from("staff").select("*").eq("id", staffId).maybeSingle(),
+    getMyStaff(),
+  ]);
+  if (!member) return;
+
+  if (member.under_18 || me?.under_18) {
+    redirect(withSaved("/chat", "Under-18 staff are messaged in channels, not one-on-one"));
+  }
+  const otherId = loginIdFor(member);
+  if (!otherId) {
+    redirect(withSaved("/chat", `${member.first_name} hasn't signed in to the app yet`));
+  }
+  if (otherId === userId) redirect("/chat");
+
+  const name = directChannelName(userId, otherId);
+  const { data: existing } = await supabase.from("channels").select("id").eq("name", name).maybeSingle();
+  if (!existing) {
+    await supabase.from("channels").insert({
+      camp_id: campId,
+      name,
+      kind: "direct",
+      members: [userId, otherId],
+      created_by: userId,
+    });
+    refreshChat();
+  }
+  redirect(`/chat/${name}`);
+}
+
+/** Adds my reaction, or takes it back if I'd already reacted with that emoji. */
+export async function toggleReaction(messageId: string, emoji: string) {
+  const { supabase, userId, fullName } = await requireCamp();
+  const { data: mine } = await supabase
+    .from("message_reactions")
+    .select("message_id")
+    .eq("message_id", messageId)
+    .eq("user_id", userId)
+    .eq("emoji", emoji)
+    .maybeSingle();
+
+  if (mine) {
+    await supabase
+      .from("message_reactions")
+      .delete()
+      .eq("message_id", messageId)
+      .eq("user_id", userId)
+      .eq("emoji", emoji);
+  } else {
+    await supabase.from("message_reactions").insert({ message_id: messageId, user_id: userId, user_name: fullName, emoji });
+  }
+  revalidatePath("/chat", "layout");
+}
+
+/** Pins a message to the top of its channel, or unpins it if it's already pinned. */
+export async function togglePin(channelId: string, messageId: string) {
+  const { supabase, campId, fullName } = await requireCamp();
+  const { data: channel } = await supabase.from("channels").select("pinned_message_id").eq("id", channelId).maybeSingle();
+  if (!channel) return;
+  const unpinning = channel.pinned_message_id === messageId;
+  await supabase
+    .from("channels")
+    .update({ pinned_message_id: unpinning ? null : messageId })
+    .eq("id", channelId)
+    .eq("camp_id", campId);
+  if (!unpinning) await postSystemMessage(supabase, campId, channelId, `${fullName ?? "Someone"} pinned a message to the top of this channel.`);
+  refreshChat();
+}
+
+/** "Got it" on an announcement. Can't be taken back: the director relies on it. */
+export async function acknowledge(messageId: string) {
+  const { supabase, userId, fullName } = await requireCamp();
+  const { data: existing } = await supabase
+    .from("message_reactions")
+    .select("message_id")
+    .eq("message_id", messageId)
+    .eq("user_id", userId)
+    .eq("emoji", "ack")
+    .maybeSingle();
+  if (!existing) {
+    await supabase.from("message_reactions").insert({ message_id: messageId, user_id: userId, user_name: fullName, emoji: "ack" });
+  }
+  refreshChat();
+}
+
+/** Sets (or clears) my status for today, like "🛶 At the waterfront". */
+export async function setStatus(formData: FormData) {
+  const { supabase, campId } = await requireCamp();
+  const me = await getMyStaff();
+  if (!me) return;
+  const preset = field(formData, "preset");
+  const [emoji, ...words] = preset ? preset.split(" ") : ["", ""];
+  const text = (field(formData, "text").trim() || words.join(" ")).slice(0, 60);
+  const clear = field(formData, "clear") === "1" || (!emoji && !text);
+  await supabase
+    .from("staff")
+    .update(
+      clear
+        ? { status_emoji: null, status_text: null, status_date: null }
+        : { status_emoji: emoji || "💬", status_text: text, status_date: todayISODate() }
+    )
+    .eq("id", me.id)
+    .eq("camp_id", campId);
+  refreshChat();
 }

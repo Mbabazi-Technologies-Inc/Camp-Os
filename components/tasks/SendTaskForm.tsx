@@ -1,8 +1,6 @@
-import { Send } from "lucide-react";
+import { CalendarDays, ChevronDown, Clock, ListChecks, Send, Users } from "lucide-react";
 import { sendTask } from "@/app/(app)/tasks/team/actions";
-import { Input, Label, Select, Textarea } from "@/components/ui/Field";
 import { SubmitButton } from "@/components/ui/SubmitButton";
-import { TASK_PRIORITY_LABELS } from "@/lib/labels";
 import { WEEKDAYS } from "@/lib/routines";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -14,61 +12,85 @@ const REPEATS = [
   { value: "weekly", label: "Some days", marker: "rep-weekly" },
 ] as const;
 
+const PRIORITIES = [
+  { value: "medium", label: "Normal" },
+  { value: "high", label: "High" },
+  { value: "low", label: "Low" },
+] as const;
+
+const pill =
+  "h-9 rounded-full border border-transparent bg-surface-muted px-3.5 text-sm font-medium text-foreground transition-colors hover:border-border focus:border-primary focus:outline-none";
+const rowLabel = "w-14 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted";
+
 /**
- * The director's "send a task" form. Sending to a team gives each person on
- * it their own copy; repeating turns it into a routine. Which fields show
- * depends on the "repeats" choice, done in CSS so it works without JavaScript.
+ * The director's "send a task" form, kept short: what, who, how often and
+ * when, each on one line of small pills. Checklist and notes are tucked
+ * under "More options". Which lines show depends on "how often", done in
+ * CSS so it works without JavaScript.
  */
 export function SendTaskForm({
   staff,
   teams,
   today,
   seasonEnd,
+  defaultTo = "",
 }: {
   staff: Staff[];
   teams: { name: string; size: number }[];
   today: string;
   /** Suggested end date for a repeating task, so summer routines stop with the season. */
   seasonEnd: string | null;
+  /** Pre-picked recipient, e.g. "person:<id>" when coming from someone's profile. */
+  defaultTo?: string;
 }) {
   return (
-    <form action={sendTask} className="group/send space-y-4">
-      <div>
-        <Label htmlFor="send-title">Task</Label>
-        <Input id="send-title" name="title" required placeholder="e.g. Morning cabin inspection" />
-      </div>
+    <form action={sendTask} className="group/send space-y-3.5">
+      <input
+        name="title"
+        required
+        aria-label="Task"
+        placeholder="What needs doing? e.g. Morning cabin inspection"
+        className="h-12 w-full rounded-xl border border-border bg-surface px-4 text-base text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
+      />
 
-      <div>
-        <Label htmlFor="send-to">Send to</Label>
-        <Select id="send-to" name="send_to" required defaultValue="">
-          <option value="" disabled>
-            Choose a team or a person
-          </option>
-          {teams.length > 0 && (
-            <optgroup label="Teams (everyone gets their own copy)">
-              {teams.map((team) => (
-                <option key={team.name} value={`team:${team.name}`}>
-                  {team.name} · {team.size} {team.size === 1 ? "person" : "people"}
+      {/* Who */}
+      <div className="flex items-center gap-2">
+        <span className={rowLabel}>To</span>
+        <label className="relative min-w-0 flex-1">
+          <span className="sr-only">Send to</span>
+          <Users size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+          <select name="send_to" required defaultValue={defaultTo} className={`${pill} w-full appearance-none pl-9 pr-8`}>
+            <option value="" disabled>
+              A team or a person
+            </option>
+            {teams.length > 0 && (
+              <optgroup label="Teams (each person gets their own copy)">
+                {teams.map((team) => (
+                  <option key={team.name} value={`team:${team.name}`}>
+                    {team.name} team · {team.size}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            <optgroup label="People">
+              {staff.map((member) => (
+                <option key={member.id} value={`person:${member.id}`}>
+                  {member.first_name} {member.last_name}
+                  {member.role ? ` · ${member.role}` : ""}
                 </option>
               ))}
             </optgroup>
-          )}
-          <optgroup label="People">
-            {staff.map((member) => (
-              <option key={member.id} value={`person:${member.id}`}>
-                {member.first_name} {member.last_name}
-                {member.role ? ` · ${member.role}` : ""}
-              </option>
-            ))}
-          </optgroup>
-        </Select>
+          </select>
+          <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+        </label>
       </div>
 
-      <fieldset>
-        <legend className="mb-1.5 block text-sm font-medium text-foreground">Repeats</legend>
-        <div className="grid grid-cols-3 gap-1 rounded-xl bg-surface-muted p-1">
+      {/* How often */}
+      <div className="flex items-center gap-2">
+        <span className={rowLabel}>Repeat</span>
+        <div className="flex flex-1 gap-1 rounded-full bg-surface-muted p-1" role="radiogroup" aria-label="Repeats">
           {REPEATS.map((option) => (
-            <label key={option.value} className="cursor-pointer">
+            <label key={option.value} className="flex-1 cursor-pointer">
               <input
                 type="radio"
                 name="repeats"
@@ -76,87 +98,102 @@ export function SendTaskForm({
                 defaultChecked={option.value === "once"}
                 className={`peer sr-only ${option.marker}`}
               />
-              <span className="flex h-9 items-center justify-center rounded-lg text-sm font-medium text-muted transition-colors peer-checked:bg-surface peer-checked:text-foreground peer-checked:shadow-sm peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40">
+              <span className="flex h-7 items-center justify-center rounded-full text-xs font-semibold text-muted transition-colors peer-checked:bg-surface peer-checked:text-foreground peer-checked:shadow-sm peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40">
                 {option.label}
               </span>
             </label>
           ))}
         </div>
-      </fieldset>
+      </div>
 
-      <fieldset className="hidden group-has-[.rep-weekly:checked]/send:block">
-        <legend className="mb-1.5 block text-sm font-medium text-foreground">On these days</legend>
-        <div className="flex flex-wrap gap-1.5">
+      <div className="hidden items-center gap-2 group-has-[.rep-weekly:checked]/send:flex">
+        <span className={rowLabel}>Days</span>
+        <div className="flex flex-1 flex-wrap gap-1">
           {[1, 2, 3, 4, 5, 6, 0].map((day) => (
             <label key={day} className="cursor-pointer">
-              <input
-                type="checkbox"
-                name="weekdays"
-                value={day}
-                defaultChecked={day >= 1 && day <= 5}
-                className="peer sr-only"
-              />
-              <span className="flex h-9 w-12 items-center justify-center rounded-lg border border-border text-sm font-medium text-muted transition-colors peer-checked:border-primary peer-checked:bg-primary-soft peer-checked:text-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40">
-                {WEEKDAYS[day]}
+              <input type="checkbox" name="weekdays" value={day} defaultChecked={day >= 1 && day <= 5} className="peer sr-only" />
+              <span className="flex h-8 w-10 items-center justify-center rounded-full border border-border text-xs font-semibold text-muted transition-colors peer-checked:border-primary peer-checked:bg-primary peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40">
+                {WEEKDAYS[day].slice(0, 2)}
               </span>
             </label>
           ))}
         </div>
-      </fieldset>
+      </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div className="hidden group-has-[.rep-once:checked]/send:block">
-          <Label htmlFor="send-due">Due date</Label>
-          <Input id="send-due" name="due_date" type="date" defaultValue={today} />
-        </div>
-        <div>
-          <Label htmlFor="send-time">Due by</Label>
-          <Input id="send-time" name="due_time" type="time" />
-        </div>
-        <div>
-          <Label htmlFor="send-priority">Priority</Label>
-          <Select id="send-priority" name="priority" defaultValue="medium">
-            {Object.entries(TASK_PRIORITY_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
+      {/* When */}
+      <div className="flex items-center gap-2">
+        <span className={rowLabel}>When</span>
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-1.5">
+          <label className="relative hidden min-w-0 group-has-[.rep-once:checked]/send:block">
+            <span className="sr-only">Due date</span>
+            <CalendarDays size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+            <input type="date" name="due_date" defaultValue={today} className={`${pill} w-full min-w-0 pl-8`} />
+          </label>
+          <label className="relative block min-w-0">
+            <span className="sr-only">Due by</span>
+            <Clock size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+            <input type="time" name="due_time" className={`${pill} w-full min-w-0 pl-8`} />
+          </label>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 group-has-[.rep-once:checked]/send:hidden">
-        <div>
-          <Label htmlFor="send-start">Starts</Label>
-          <Input id="send-start" name="starts_on" type="date" defaultValue={today} />
+      <div className="flex items-center gap-2 group-has-[.rep-once:checked]/send:hidden">
+        <span className={rowLabel}>Runs</span>
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-1.5">
+          <input type="date" name="starts_on" defaultValue={today} aria-label="Starts" className={`${pill} w-full min-w-0`} />
+          <input type="date" name="ends_on" defaultValue={seasonEnd ?? ""} aria-label="Ends (optional)" className={`${pill} w-full min-w-0`} />
         </div>
-        <div>
-          <Label htmlFor="send-end">Ends</Label>
-          <Input id="send-end" name="ends_on" type="date" defaultValue={seasonEnd ?? ""} />
+      </div>
+
+      {/* How urgent */}
+      <div className="flex items-center gap-2">
+        <span className={rowLabel}>Priority</span>
+        <div className="flex gap-1" role="radiogroup" aria-label="Priority">
+          {PRIORITIES.map((p) => (
+            <label key={p.value} className="cursor-pointer">
+              <input type="radio" name="priority" value={p.value} defaultChecked={p.value === "medium"} className="peer sr-only" />
+              <span
+                className={`flex h-8 items-center rounded-full border border-border px-3 text-xs font-semibold text-muted transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40 ${
+                  p.value === "high"
+                    ? "peer-checked:border-danger peer-checked:bg-danger peer-checked:text-white"
+                    : "peer-checked:border-primary peer-checked:bg-primary peer-checked:text-white"
+                }`}
+              >
+                {p.label}
+              </span>
+            </label>
+          ))}
         </div>
-        <p className="col-span-2 -mt-1 text-xs text-muted">
-          Leave the end empty to keep it going. Each day it runs, it appears on everyone&apos;s task list on its own.
-        </p>
       </div>
 
-      <div>
-        <Label htmlFor="send-checklist">Checklist (optional)</Label>
-        <Textarea
-          id="send-checklist"
-          name="checklist"
-          rows={3}
-          className="min-h-0"
-          placeholder={"One step per line, e.g.\nBeds made, floor clear\nMeds box locked"}
-        />
-        <p className="mt-1 text-xs text-muted">The task is done once every step is ticked, so done means the same for everyone.</p>
-      </div>
+      <details className="group/more rounded-xl border border-dashed border-border px-3 py-2">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-primary [&::-webkit-details-marker]:hidden">
+          <ListChecks size={15} /> More options: checklist and notes
+          <ChevronDown size={14} className="ml-auto transition-transform group-open/more:rotate-180" />
+        </summary>
+        <div className="mt-3 space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-muted">Checklist, one step per line</span>
+            <textarea
+              name="checklist"
+              rows={3}
+              placeholder={"Beds made, floor clear\nMeds box locked"}
+              className="w-full resize-y rounded-xl border border-border bg-surface px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-muted">Notes</span>
+            <textarea
+              name="description"
+              rows={2}
+              placeholder="Anything they should know"
+              className="w-full resize-y rounded-xl border border-border bg-surface px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            />
+          </label>
+        </div>
+      </details>
 
-      <div>
-        <Label htmlFor="send-notes">Notes (optional)</Label>
-        <Textarea id="send-notes" name="description" rows={2} className="min-h-0" placeholder="Anything they should know" />
-      </div>
-
-      <SubmitButton pendingText="Sending...">
+      <SubmitButton pendingText="Sending..." className="w-full sm:w-auto">
         <Send size={16} /> Send task
       </SubmitButton>
     </form>

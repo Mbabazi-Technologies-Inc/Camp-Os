@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BookOpen as BookOpenIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createKnowledgeEntry, addStarterPack } from "./actions";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -34,7 +35,7 @@ export default async function KnowledgeBasePage() {
 
   return (
     <div>
-      <PageHeader
+      <PageHeader icon={BookOpenIcon} eyebrow="Camp knowledge"
         title="Knowledge base"
         description="The facts the AI is allowed to use when drafting replies - rules, pickup times, packing lists, and policies."
       />

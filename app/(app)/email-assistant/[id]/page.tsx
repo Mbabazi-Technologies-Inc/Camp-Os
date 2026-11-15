@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { MailOpen as MailOpenIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import {
   saveEmailDraft,
@@ -56,7 +57,7 @@ export default async function EmailDraftPage({
       >
         <ArrowLeft size={15} /> All emails
       </Link>
-      <PageHeader
+      <PageHeader icon={MailOpenIcon} eyebrow="Email assistant"
         title={draft.sender_name || draft.sender_email || "Email"}
         description={draft.subject || draft.sender_email || undefined}
         action={

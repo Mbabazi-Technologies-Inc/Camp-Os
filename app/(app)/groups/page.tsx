@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { Trees as TreesIcon } from "lucide-react";
 import { createRetreatGroup } from "./actions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AddPanel } from "@/components/ui/AddPanel";
@@ -31,7 +32,7 @@ export default async function RetreatGroupsPage() {
 
   return (
     <div>
-      <PageHeader
+      <PageHeader icon={TreesIcon} eyebrow="Retreat centre"
         title="Retreat groups"
         description="Bookings for the retreat centre - groups of 20 to 110, September to June."
       />

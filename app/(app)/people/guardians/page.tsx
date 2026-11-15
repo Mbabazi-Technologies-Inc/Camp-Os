@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HeartHandshake as HeartHandshakeIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createGuardian } from "../actions";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -31,7 +32,7 @@ export default async function GuardiansPage({
 
   return (
     <div>
-      <PageHeader title="Guardians" description="Parent and guardian contact records." />
+      <PageHeader icon={HeartHandshakeIcon} eyebrow="People" title="Guardians" description="Parent and guardian contact records." />
 
       <AddPanel label="Add guardian">
         <form action={createGuardian} className="space-y-3">

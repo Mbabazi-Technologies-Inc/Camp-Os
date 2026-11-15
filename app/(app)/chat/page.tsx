@@ -1,13 +1,17 @@
 import Link from "next/link";
-import { Hash, Sun, Trees } from "lucide-react";
+import { MessagesSquare as MessagesSquareIcon } from "lucide-react";
+import { Hash, Lock, MessageCircle, Sun, Trees } from "lucide-react";
 import { requireCamp } from "@/lib/auth";
-import { getChannelList } from "@/lib/chat";
+import { getChannelList, loginIdFor } from "@/lib/chat";
+import { getMyStaff, staffActiveOn } from "@/lib/routines";
+import { todayISODate } from "@/lib/dates";
+import { initials } from "@/lib/initials";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { AddPanel } from "@/components/ui/AddPanel";
 import { Input, Label, Select } from "@/components/ui/Field";
 import { SubmitButton } from "@/components/ui/SubmitButton";
-import { createChannel } from "./actions";
+import { createChannel, startDirectMessage } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +19,19 @@ const SECTIONS = [
   { kind: "standing", title: "Channels", icon: Hash },
   { kind: "retreat_group", title: "Retreat groups", icon: Trees },
   { kind: "summer", title: "Summer", icon: Sun },
+  { kind: "direct", title: "Direct messages", icon: MessageCircle },
 ] as const;
 
 export default async function ChatPage() {
-  const { supabase, role } = await requireCamp();
+  const { supabase, role, userId } = await requireCamp();
   const channels = await getChannelList();
+  const [me, { data: staffRows }] = await Promise.all([
+    getMyStaff(),
+    supabase.from("staff").select("*").order("first_name", { ascending: true }),
+  ]);
+  const today = todayISODate();
+  // Everyone you could message, except yourself.
+  const people = (staffRows ?? []).filter((m) => staffActiveOn(m, today) && loginIdFor(m) !== userId);
 
   // The latest line in each channel, shown under its name.
   const { data: recent } = await supabase
@@ -32,7 +44,7 @@ export default async function ChatPage() {
 
   return (
     <div>
-      <PageHeader title="Chat" description="Channels for the team, and one for every retreat group." />
+      <PageHeader icon={MessagesSquareIcon} eyebrow="Camp chat" title="Chat" description="Channels for the team, and one for every retreat group." />
 
       {role === "director" && (
         <AddPanel label="New channel">
@@ -79,7 +91,7 @@ export default async function ChatPage() {
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className={`block truncate ${channel.unread ? "font-bold text-foreground" : "font-medium text-foreground"}`}>
-                              {channel.name}
+                              {channel.label}
                               {channel.meta && <span className="ml-2 text-xs font-normal text-muted">{channel.meta}</span>}
                             </span>
                             {last && (
@@ -101,6 +113,50 @@ export default async function ChatPage() {
             </section>
           );
         })}
+
+        <section id="people" className="scroll-mt-20">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Message someone</h2>
+          <Card>
+            <ul className="divide-y divide-border">
+              {people.map((member) => {
+                const name = `${member.first_name} ${member.last_name}`;
+                // Safeguarding: no one-on-one messages with under-18 staff, in either direction.
+                const blocked = member.under_18 || me?.under_18;
+                const noLogin = !loginIdFor(member);
+                return (
+                  <li key={member.id}>
+                    <form action={startDirectMessage.bind(null, member.id)}>
+                      <button
+                        type="submit"
+                        disabled={Boolean(blocked) || noLogin}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted/50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary">
+                          {initials(name)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium text-foreground">{name}</span>
+                          <span className="block truncate text-sm text-muted">
+                            {blocked
+                              ? "Under 18: message them in a channel instead"
+                              : noLogin
+                                ? "Hasn't signed in to the app yet"
+                                : [member.role, member.team].filter(Boolean).join(" · ")}
+                          </span>
+                        </span>
+                        {blocked ? (
+                          <Lock size={15} className="shrink-0 text-muted" aria-label="Not available" />
+                        ) : (
+                          <MessageCircle size={16} className="shrink-0 text-primary" />
+                        )}
+                      </button>
+                    </form>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        </section>
       </div>
     </div>
   );

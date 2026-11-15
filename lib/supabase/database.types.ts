@@ -9,8 +9,8 @@ export type MemberRole = "director" | "staff";
 export type StaffSeason = "year_round" | "summer";
 export type RoutineTargetType = "person" | "team";
 export type RoutineFrequency = "daily" | "weekly";
-export type ChannelKind = "standing" | "retreat_group" | "summer";
-export type MessageKind = "user" | "system";
+export type ChannelKind = "standing" | "retreat_group" | "summer" | "direct";
+export type MessageKind = "user" | "system" | "announcement";
 export type ChecklistItem = { label: string; done: boolean };
 
 export type RetreatGroupStatus = "inquiry" | "tentative" | "confirmed" | "cancelled";
@@ -98,6 +98,7 @@ export interface Database {
           due_time: string | null;
           completed_at: string | null;
           checklist: ChecklistItem[] | null;
+          retreat_group_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -190,6 +191,9 @@ export interface Database {
           under_18: boolean;
           access_ends: string | null;
           profile_id: string | null;
+          status_emoji: string | null;
+          status_text: string | null;
+          status_date: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -238,6 +242,8 @@ export interface Database {
           kind: ChannelKind;
           description: string | null;
           retreat_group_id: string | null;
+          members: string[] | null;
+          pinned_message_id: string | null;
           archived: boolean;
           created_by: string | null;
           created_at: string;
@@ -256,6 +262,7 @@ export interface Database {
           kind: MessageKind;
           body: string;
           task_id: string | null;
+          parent_id: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["messages"]["Row"]> & {
@@ -264,6 +271,12 @@ export interface Database {
           body: string;
         };
         Update: Partial<Database["public"]["Tables"]["messages"]["Row"]>;
+        Relationships: [];
+      };
+      message_reactions: {
+        Row: { message_id: string; user_id: string; user_name: string | null; emoji: string; created_at: string };
+        Insert: { message_id: string; user_id: string; user_name?: string | null; emoji: string };
+        Update: Partial<Database["public"]["Tables"]["message_reactions"]["Row"]>;
         Relationships: [];
       };
       channel_reads: {

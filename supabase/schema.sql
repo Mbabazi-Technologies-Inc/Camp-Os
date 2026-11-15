@@ -553,3 +553,65 @@ drop policy if exists "People manage their own read markers" on public.channel_r
 create policy "People manage their own read markers" on public.channel_reads
   for all using (user_id = auth.uid())
   with check (user_id = auth.uid());
+
+-- Direct messages are channels of kind 'direct' that only their members see.
+alter table public.channels add column if not exists members uuid[];
+alter table public.channels drop constraint if exists channels_kind_check;
+alter table public.channels add constraint channels_kind_check
+  check (kind in ('standing', 'retreat_group', 'summer', 'direct'));
+
+drop policy if exists "Members use their camp channels" on public.channels;
+create policy "Members use their camp channels" on public.channels
+  for all using (
+    camp_id = public.user_camp_id()
+    and (kind <> 'direct' or auth.uid() = any (members))
+  )
+  with check (camp_id = public.user_camp_id());
+
+drop policy if exists "Members read their camp messages" on public.messages;
+create policy "Members read their camp messages" on public.messages
+  for select using (
+    camp_id = public.user_camp_id()
+    and exists (select 1 from public.channels c where c.id = channel_id)
+  );
+
+-- Reactions: a quick way to say "seen", "done" or "thanks" without a message.
+create table if not exists public.message_reactions (
+  message_id uuid not null references public.messages (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  user_name text,
+  emoji text not null,
+  created_at timestamptz not null default now(),
+  primary key (message_id, user_id, emoji)
+);
+
+alter table public.message_reactions enable row level security;
+
+drop policy if exists "Members see reactions" on public.message_reactions;
+create policy "Members see reactions" on public.message_reactions
+  for select using (exists (select 1 from public.messages m where m.id = message_id));
+
+drop policy if exists "People manage their own reactions" on public.message_reactions;
+create policy "People manage their own reactions" on public.message_reactions
+  for all using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- Threads: a reply points at the message it answers. Pins: one message per
+-- channel kept at the top (the weekend schedule, the gate code...).
+alter table public.messages add column if not exists parent_id uuid references public.messages (id) on delete cascade;
+create index if not exists messages_parent_idx on public.messages (parent_id);
+alter table public.channels add column if not exists pinned_message_id uuid references public.messages (id) on delete set null;
+
+-- Announcements: messages everyone is asked to confirm ("Got it"). The
+-- confirmation is stored as a reaction with emoji 'ack'.
+alter table public.messages drop constraint if exists messages_kind_check;
+alter table public.messages add constraint messages_kind_check check (kind in ('user', 'system', 'announcement'));
+
+-- A quick status for the day ("On site", "Off today"), cleared the next day.
+alter table public.staff add column if not exists status_emoji text;
+alter table public.staff add column if not exists status_text text;
+alter table public.staff add column if not exists status_date date;
+
+-- A task can belong to a retreat group (its prep list).
+alter table public.tasks add column if not exists retreat_group_id uuid references public.retreat_groups (id) on delete set null;
+create index if not exists tasks_retreat_group_idx on public.tasks (retreat_group_id);

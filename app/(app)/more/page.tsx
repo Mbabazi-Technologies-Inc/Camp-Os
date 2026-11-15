@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LayoutGrid as LayoutGridIcon } from "lucide-react";
 import { BookOpen, ChevronRight, LogOut, Settings, Trees, Users } from "lucide-react";
 import { signOut } from "@/app/login/actions";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -15,7 +16,7 @@ const LINKS = [
 export default function MorePage() {
   return (
     <div>
-      <PageHeader title="More" />
+      <PageHeader icon={LayoutGridIcon} eyebrow="Camp office" title="More" />
       <Card>
         <ul className="divide-y divide-border">
           {LINKS.map(({ href, label, description, icon: Icon }) => (

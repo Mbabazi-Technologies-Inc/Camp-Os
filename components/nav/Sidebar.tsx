@@ -21,6 +21,9 @@ import { BrandMark } from "@/components/Brand";
 import { Treeline } from "@/components/site/Treeline";
 import type { SidebarChannel } from "@/lib/chat";
 import type { Season } from "@/lib/season";
+import { QuickSwitcherButton } from "./QuickSwitcher";
+import { NotificationToggle } from "@/components/chat/ChatNotifier";
+import { StatusPicker } from "./StatusPicker";
 
 const TOOLS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/tasks", label: "Tasks", icon: ListTodo },
@@ -35,6 +38,7 @@ const SECTIONS = [
   { kind: "standing", title: "Channels", icon: Hash },
   { kind: "retreat_group", title: "Retreat groups", icon: Trees },
   { kind: "summer", title: "Summer", icon: Sun },
+  { kind: "direct", title: "Direct messages", icon: Hash },
 ] as const;
 
 function Badge({ count }: { count: number }) {
@@ -56,6 +60,7 @@ export function Sidebar({
   channels,
   badges = {},
   isDirector,
+  status = null,
 }: {
   campName: string | null;
   userName: string;
@@ -64,6 +69,8 @@ export function Sidebar({
   channels: SidebarChannel[];
   badges?: Record<string, number>;
   isDirector: boolean;
+  /** My status for today, if I've set one. */
+  status?: { emoji: string; text: string } | null;
 }) {
   const pathname = usePathname();
   const initials = userName
@@ -94,6 +101,10 @@ export function Sidebar({
           </span>
         </div>
       </Link>
+
+      <div className="px-2 pt-2.5">
+        <QuickSwitcherButton className="flex w-full items-center gap-2 rounded-lg bg-white/[0.07] px-2.5 py-1.5 text-[13px] text-[#a9bfc4] transition-colors hover:bg-white/[0.12] hover:text-white" />
+      </div>
 
       <nav className="flex-1 overflow-y-auto px-2 pb-6 pt-2" aria-label="Main">
         <Link
@@ -134,13 +145,17 @@ export function Sidebar({
 
         {SECTIONS.map(({ kind, title, icon: Icon }) => {
           const list = channels.filter((c) => c.kind === kind);
-          if (list.length === 0 && kind !== "standing") return null;
+          if (list.length === 0 && kind !== "standing" && kind !== "direct") return null;
           return (
             <div key={kind} className="mt-4">
               <div className="flex items-center justify-between px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#86a0a6]">
                 {title}
-                {kind === "standing" && isDirector && (
-                  <Link href="/chat" aria-label="New channel" className="rounded p-0.5 hover:bg-white/10 hover:text-white">
+                {((kind === "standing" && isDirector) || kind === "direct") && (
+                  <Link
+                    href={kind === "direct" ? "/chat#people" : "/chat"}
+                    aria-label={kind === "direct" ? "Message someone" : "New channel"}
+                    className="rounded p-0.5 hover:bg-white/10 hover:text-white"
+                  >
                     <Plus size={13} />
                   </Link>
                 )}
@@ -161,8 +176,23 @@ export function Sidebar({
                           : "hover:bg-white/[0.06] hover:text-white"
                     }`}
                   >
-                    <Icon size={13} className="shrink-0 opacity-60" />
-                    <span className="truncate">{channel.name}</span>
+                    {kind === "direct" ? (
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-white/15 text-[8px] font-bold text-white">
+                        {channel.label
+                          .split(" ")
+                          .map((p) => p[0])
+                          .join("")
+                          .slice(0, 2)}
+                      </span>
+                    ) : (
+                      <Icon size={13} className="shrink-0 opacity-60" />
+                    )}
+                    <span className="truncate">{channel.label}</span>
+                    {channel.status && (
+                      <span title={channel.status.text} className="shrink-0 text-xs">
+                        {channel.status.emoji}
+                      </span>
+                    )}
                     {channel.unread > 0 ? (
                       <Badge count={channel.unread} />
                     ) : (
@@ -176,6 +206,8 @@ export function Sidebar({
         })}
       </nav>
 
+      <NotificationToggle className="mx-2 mb-1.5 flex items-center gap-2 rounded-lg px-2.5 py-1 text-xs text-[#a9bfc4] hover:bg-white/[0.06] hover:text-white" />
+
       {/* Me */}
       <div className="flex items-center gap-2.5 border-t border-white/10 bg-[#0f2f37] px-3 py-2.5">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">
@@ -184,6 +216,7 @@ export function Sidebar({
         <div className="min-w-0 flex-1 text-xs leading-tight">
           <p className="truncate font-semibold text-white">{userName}</p>
           <p className="truncate">{roleLabel}</p>
+          <StatusPicker status={status} />
         </div>
         <form action={signOut}>
           <button

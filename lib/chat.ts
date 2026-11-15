@@ -1,10 +1,43 @@
 import { cache } from "react";
 import { requireCamp, type CampContext } from "@/lib/auth";
 import { campISODate } from "@/lib/dates";
+import { isSupabaseConfigured } from "@/lib/env";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Channel = Database["public"]["Tables"]["channels"]["Row"];
 type Group = Database["public"]["Tables"]["retreat_groups"]["Row"];
+type Staff = Database["public"]["Tables"]["staff"]["Row"];
+
+/**
+ * The login a staff member messages as. In the demo every staff member has
+ * one (see "view as"); with a real database only people who've signed up do.
+ */
+export function loginIdFor(member: Staff): string | null {
+  if (member.profile_id) return member.profile_id;
+  return isSupabaseConfigured() ? null : `demo-user-${member.id}`;
+}
+
+/** Direct messages are only for the two people in them. */
+export function canSee(channel: Pick<Channel, "kind" | "members">, userId: string): boolean {
+  return channel.kind !== "direct" || (channel.members ?? []).includes(userId);
+}
+
+/** Who the other person in a direct message is. */
+export function otherMember(channel: Pick<Channel, "members">, userId: string, staff: Staff[]): Staff | undefined {
+  const other = (channel.members ?? []).find((id) => id !== userId) ?? userId;
+  return staff.find((m) => loginIdFor(m) === other);
+}
+
+/** The name people see: the other person for a DM, the channel name otherwise. */
+export function channelLabel(channel: Pick<Channel, "kind" | "members" | "name">, userId: string, staff: Staff[]): string {
+  if (channel.kind !== "direct") return channel.name;
+  const other = otherMember(channel, userId, staff);
+  return other ? `${other.first_name} ${other.last_name}` : "Direct message";
+}
+
+export function directChannelName(a: string, b: string): string {
+  return `dm-${[a, b].sort().join("-")}`;
+}
 type Supabase = CampContext["supabase"];
 
 /** "Grace Fellowship youth retreat" -> "grace-fellowship-youth-retreat" (at most 4 words). */
@@ -104,10 +137,16 @@ export interface SidebarChannel {
   id: string;
   name: string;
   kind: Channel["kind"];
+  /** What to show: the other person's name for a direct message. */
+  label: string;
   unread: number;
   /** For retreat groups: "Nov 14". */
   meta: string | null;
+  /** For a direct message: the other person's status today. */
+  status: { emoji: string; text: string } | null;
 }
+
+const statusFor = (member: Staff | undefined) => (member ? statusOf(member, campISODate()) : null);
 
 /** Channels for the sidebar and chat list, with how many messages I haven't seen. */
 export const getChannelList = cache(async (): Promise<SidebarChannel[]> => {
@@ -115,7 +154,7 @@ export const getChannelList = cache(async (): Promise<SidebarChannel[]> => {
   const { supabase, userId } = await requireCamp();
   const since = campISODate(-30);
 
-  const [{ data: channels }, { data: reads }, { data: recent }, { data: groups }] = await Promise.all([
+  const [{ data: channels }, { data: reads }, { data: recent }, { data: groups }, { data: staff }] = await Promise.all([
     supabase.from("channels").select("*").eq("archived", false).order("name", { ascending: true }),
     supabase.from("channel_reads").select("*").eq("user_id", userId),
     supabase
@@ -125,12 +164,13 @@ export const getChannelList = cache(async (): Promise<SidebarChannel[]> => {
       .order("created_at", { ascending: false })
       .limit(2000),
     supabase.from("retreat_groups").select("id, arrival_date"),
+    supabase.from("staff").select("*"),
   ]);
 
   const lastRead = new Map((reads ?? []).map((r) => [r.channel_id, r.last_read_at]));
   const arrival = new Map((groups ?? []).map((g) => [g.id, g.arrival_date]));
 
-  const list = (channels ?? []).map((channel) => {
+  const list = (channels ?? []).filter((c) => canSee(c, userId)).map((channel) => {
     const seen = lastRead.get(channel.id) ?? "";
     const unread = (recent ?? []).filter(
       (m) => m.channel_id === channel.id && m.author_id !== userId && m.created_at > seen
@@ -140,6 +180,8 @@ export const getChannelList = cache(async (): Promise<SidebarChannel[]> => {
       id: channel.id,
       name: channel.name,
       kind: channel.kind,
+      label: channelLabel(channel, userId, staff ?? []),
+      status: channel.kind === "direct" ? statusFor(otherMember(channel, userId, staff ?? [])) : null,
       unread,
       meta: arrives
         ? new Date(arrives + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
@@ -150,7 +192,7 @@ export const getChannelList = cache(async (): Promise<SidebarChannel[]> => {
 
   // Retreat groups in arrival order; the rest alphabetical.
   list.sort((a, b) => (a.kind === "retreat_group" && b.kind === "retreat_group" ? a.arrives.localeCompare(b.arrives) : 0));
-  return list.map((c) => ({ id: c.id, name: c.name, kind: c.kind, unread: c.unread, meta: c.meta }));
+  return list.map((c) => ({ id: c.id, name: c.name, kind: c.kind, label: c.label, unread: c.unread, meta: c.meta, status: c.status }));
 });
 
 /** Remember that I've seen everything in a channel up to now. */
@@ -167,4 +209,18 @@ export async function markChannelRead(supabase: Supabase, channelId: string, use
   } else {
     await supabase.from("channel_reads").insert({ channel_id: channelId, user_id: userId, last_read_at: now });
   }
+}
+
+/** Everyone an announcement is for: staff who can sign in, other than whoever posted it. */
+export function announcementAudience(staff: Staff[], authorId: string | null, today: string): Staff[] {
+  return staff.filter((m) => {
+    const login = loginIdFor(m);
+    return login && login !== authorId && (!m.access_ends || today <= m.access_ends);
+  });
+}
+
+/** Today's status for someone, or null once the day has passed. */
+export function statusOf(member: Pick<Staff, "status_emoji" | "status_text" | "status_date">, today: string) {
+  if (!member.status_date || member.status_date !== today || !(member.status_emoji || member.status_text)) return null;
+  return { emoji: member.status_emoji ?? "", text: member.status_text ?? "" };
 }

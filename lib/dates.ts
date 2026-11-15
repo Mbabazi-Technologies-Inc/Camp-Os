@@ -75,3 +75,11 @@ export function nightsBetween(start: string | null, end: string | null): number 
   );
   return nights >= 0 ? nights : null;
 }
+
+/** Days from today (camp time) to the coming Saturday and the next Monday. */
+export function weekdayOffsets(): { saturday: number; monday: number } {
+  const day = new Date(campISODate(0) + "T00:00:00").getDay();
+  const saturday = (6 - day + 7) % 7 || 7;
+  const monday = (1 - day + 7) % 7 || 7;
+  return { saturday, monday };
+}

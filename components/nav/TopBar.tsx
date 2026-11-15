@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/Brand";
 import { Settings } from "lucide-react";
+import { QuickSwitcherIconButton } from "./QuickSwitcher";
 
 export function TopBar({ campName }: { campName: string | null }) {
   return (
@@ -18,6 +19,7 @@ export function TopBar({ campName }: { campName: string | null }) {
         </div>
       </div>
       <div className="flex items-center gap-1">
+        <QuickSwitcherIconButton />
         <Link
           href="/settings"
           aria-label="Settings"

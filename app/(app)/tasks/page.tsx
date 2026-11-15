@@ -1,14 +1,13 @@
 import { requireCamp } from "@/lib/auth";
+import { ListTodo as ListTodoIcon } from "lucide-react";
 import { ensureRoutineTasks, getMyStaff, myTasksFilter, staffActiveOn } from "@/lib/routines";
 import { TaskTabs } from "@/components/tasks/TaskTabs";
+import { QuickAddTask } from "@/components/tasks/QuickAddTask";
 import { createTask } from "./actions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Input, Select } from "@/components/ui/Field";
-import { SubmitButton } from "@/components/ui/SubmitButton";
 import { TaskItem } from "@/components/tasks/TaskItem";
-import { TASK_PRIORITY_LABELS } from "@/lib/labels";
 import { todayISODate, campISODate } from "@/lib/dates";
 import { Plus } from "lucide-react";
 
@@ -71,7 +70,7 @@ export default async function TasksPage() {
 
   return (
     <div>
-      <PageHeader
+      <PageHeader icon={ListTodoIcon} eyebrow="Tasks"
         title="My tasks"
         description={
           open.length
@@ -82,50 +81,13 @@ export default async function TasksPage() {
 
       {isDirector && <TaskTabs teamAlert={teamAlert} />}
 
-      <Card className="mb-8 p-3">
-        <form
-          action={createTask}
-          className={`grid grid-cols-2 gap-2 ${
-            isDirector
-              ? "sm:grid-cols-[minmax(0,1fr)_9.5rem_9rem_7.5rem_auto]"
-              : "sm:grid-cols-[minmax(0,1fr)_10rem_8rem_auto]"
-          }`}
-        >
-          {!isDirector && me && <input type="hidden" name="assigned_to" value={me.id} />}
-          <Input
-            name="title"
-            placeholder="Add a task... e.g. Call Cabin 4 parent back"
-            aria-label="Task"
-            required
-            className="col-span-2 sm:col-span-1"
-            enterKeyHint="done"
-          />
-          {isDirector && (
-            <Select name="assigned_to" defaultValue="" aria-label="For" className="col-span-2 sm:col-span-1">
-              <option value="">For: office</option>
-              {me && <option value={me.id}>For: me</option>}
-              {assignable
-                .filter((m) => m.id !== me?.id)
-                .map((m) => (
-                  <option key={m.id} value={m.id}>
-                    For: {m.first_name} {m.last_name}
-                  </option>
-                ))}
-            </Select>
-          )}
-          <Input name="due_date" type="date" defaultValue={today} aria-label="Due date" />
-          <Select name="priority" defaultValue="medium" aria-label="Priority">
-            {Object.entries(TASK_PRIORITY_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-          <SubmitButton pendingText="Adding..." className="col-span-2 sm:col-span-1">
-            <Plus size={17} /> Add
-          </SubmitButton>
-        </form>
-      </Card>
+      <QuickAddTask
+        action={createTask}
+        people={isDirector ? assignable.map((m) => ({ id: m.id, name: `${m.first_name} ${m.last_name}` })) : undefined}
+        meId={me?.id ?? null}
+        assignToMe={!isDirector}
+        placeholder="Add a task… e.g. Call Cabin 4 parent back"
+      />
 
       {groups.length === 0 ? (
         <Card className="mb-8">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Tent as TentIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createCamper } from "../actions";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -40,7 +41,7 @@ export default async function CampersPage({
 
   return (
     <div>
-      <PageHeader
+      <PageHeader icon={TentIcon} eyebrow="People"
         title="Campers"
         description="Basic records for the campers in your care."
       />

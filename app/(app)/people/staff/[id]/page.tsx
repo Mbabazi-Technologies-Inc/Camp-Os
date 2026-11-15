@@ -1,9 +1,13 @@
 import { notFound } from "next/navigation";
-import { BadgeCheck, Mail, Phone } from "lucide-react";
+import Link from "next/link";
+import { BadgeCheck, ListPlus, Lock, Mail, MessageCircle, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { updateStaff, deleteStaff } from "../../actions";
 import { StaffFields } from "@/components/people/StaffFields";
 import { teamsOf } from "@/lib/routines";
+import { requireCamp } from "@/lib/auth";
+import { loginIdFor, statusOf } from "@/lib/chat";
+import { startDirectMessage } from "@/app/(app)/chat/actions";
 import { todayISODate } from "@/lib/dates";
 import { TaskItem } from "@/components/tasks/TaskItem";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
@@ -25,6 +29,9 @@ export default async function StaffDetailPage({
   if (!member) notFound();
   const { data: everyone } = await supabase.from("staff").select("*");
   const teams = teamsOf(everyone ?? []);
+  const { userId, role } = await requireCamp();
+  const login = loginIdFor(member);
+  const isMe = login === userId;
   const today = todayISODate();
   const { data: theirTasks } = await supabase
     .from("tasks")
@@ -45,9 +52,44 @@ export default async function StaffDetailPage({
         title={name}
         badge={initials(name)}
         tone="accent"
-        meta={member.role ? <MetaItem icon={<BadgeCheck size={14} />}>{member.role}</MetaItem> : undefined}
+        meta={
+          <>
+            {member.role && <MetaItem icon={<BadgeCheck size={14} />}>{member.role}</MetaItem>}
+            {statusOf(member, todayISODate()) && (
+              <span className="rounded-full bg-surface-muted px-2.5 py-0.5 text-xs font-medium text-foreground">
+                {statusOf(member, todayISODate())!.emoji} {statusOf(member, todayISODate())!.text}
+              </span>
+            )}
+          </>
+        }
         actions={
           <>
+            {!isMe && login && !member.under_18 && (
+              <form action={startDirectMessage.bind(null, member.id)}>
+                <button
+                  type="submit"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-sm hover:bg-primary-hover"
+                >
+                  <MessageCircle size={16} /> Message
+                </button>
+              </form>
+            )}
+            {member.under_18 && (
+              <span
+                title="Under-18 staff are messaged in channels, not one-on-one"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm text-muted"
+              >
+                <Lock size={14} /> Channels only
+              </span>
+            )}
+            {role === "director" && (
+              <Link
+                href={`/tasks/team?to=person:${member.id}`}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-surface px-3.5 text-sm font-semibold text-foreground hover:bg-surface-muted"
+              >
+                <ListPlus size={16} /> Send a task
+              </Link>
+            )}
             {member.phone && <ContactAction href={`tel:${member.phone}`} label="Call" icon={<Phone size={15} />} />}
             {member.email && <ContactAction href={`mailto:${member.email}`} label="Email" icon={<Mail size={15} />} />}
           </>

@@ -74,7 +74,7 @@ export function DetailGrid({ children, aside }: { children: React.ReactNode; asi
   if (!aside) return <div className="max-w-3xl">{children}</div>;
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start">
-      <div className="min-w-0">{children}</div>
+      <div className="min-w-0 space-y-4">{children}</div>
       <div className="min-w-0 space-y-4">{aside}</div>
     </div>
   );

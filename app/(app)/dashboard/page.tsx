@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { requireCamp } from "@/lib/auth";
+import { isSupabaseConfigured } from "@/lib/env";
+import { canSee, getChannelList } from "@/lib/chat";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { HomeHero, type HeroChip, type HeroNext, type HeroStat } from "@/components/home/HomeHero";
+import { acknowledge } from "@/app/(app)/chat/actions";
 import { campTimeNow, ensureRoutineTasks, getMyStaff, myTasksFilter } from "@/lib/routines";
 import { createTask } from "@/app/(app)/tasks/actions";
 import { addStarterPack } from "@/app/(app)/knowledge-base/actions";
-import { todayISODate, tomorrowISODate, formatRelativeTime, formatDueDate, campISODate } from "@/lib/dates";
+import { todayISODate, tomorrowISODate, formatRelativeTime, campISODate } from "@/lib/dates";
 import { seasonFor, SEASON_LABELS } from "@/lib/season";
 import { GroupRow } from "@/components/groups/GroupRow";
 import { Card } from "@/components/ui/Card";
@@ -13,20 +18,17 @@ import { LinkButton } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Field";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { TaskItem } from "@/components/tasks/TaskItem";
-import { Contours } from "@/components/site/Contours";
-import { Treeline } from "@/components/site/Treeline";
 import { EMAIL_URGENCY_LABELS, EMAIL_URGENCY_STYLES } from "@/lib/labels";
 import {
   Mail,
   ListTodo,
   Plus,
-  ArrowRight,
-  Sun,
-  Sparkles,
   CheckCircle2,
   Circle,
   Trees,
-  UsersRound,
+  Megaphone,
+  MessageSquare,
+  AtSign,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -35,16 +37,6 @@ function isoDaysFromToday(days: number) {
   return campISODate(days);
 }
 
-// "today", "tomorrow", "Friday" or "Nov 6" for an arrival date.
-function arrivalWord(date: string | null) {
-  const label = formatDueDate(date).label.replace(/^Due /, "");
-  return label === "today" || label === "tomorrow" ? label : label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-// "a, b and c"
-function joinList(parts: string[]) {
-  return parts.length < 2 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
-}
 
 function greetingForHour(hour: number) {
   if (hour < 12) return "Good morning";
@@ -52,8 +44,9 @@ function greetingForHour(hour: number) {
   return "Good evening";
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ hour?: string }> }) {
   const { supabase, campId, fullName, role, userId } = await requireCamp();
+  const { hour: previewHour } = await searchParams;
 
   const today = todayISODate();
   const tomorrow = tomorrowISODate();
@@ -155,7 +148,7 @@ export default async function DashboardPage() {
       .order("created_at", { ascending: false })
       .limit(200),
     supabase.from("channel_reads").select("*").eq("user_id", userId),
-    supabase.from("channels").select("id, name, kind"),
+    supabase.from("channels").select("id, name, kind, members, retreat_group_id"),
   ]);
   const readAt = new Map((myReads ?? []).map((r) => [r.channel_id, r.last_read_at]));
   const channelById = new Map((channelRows ?? []).map((c) => [c.id, c]));
@@ -163,9 +156,29 @@ export default async function DashboardPage() {
     Boolean(myName) && (body.includes(`@${myName}`) || (myFirst.length > 2 && body.includes(`@${myFirst}`)));
   const forMe = (recentMessages ?? [])
     .filter((m) => m.author_id !== userId)
+    .filter((m) => {
+      const channel = channelById.get(m.channel_id);
+      return Boolean(channel && canSee(channel, userId));
+    })
     .filter((m) => mentionsMe(m.body) || m.created_at > (readAt.get(m.channel_id) ?? ""))
     .slice(0, 5)
     .map((m) => ({ ...m, mention: mentionsMe(m.body), channel: channelById.get(m.channel_id) }));
+
+  // Announcements I still need to confirm.
+  const [{ data: announcements }, { data: myAcks }] = await Promise.all([
+    supabase
+      .from("messages")
+      .select("*")
+      .eq("kind", "announcement")
+      .gte("created_at", campISODate(-30))
+      .order("created_at", { ascending: false }),
+    supabase.from("message_reactions").select("message_id").eq("user_id", userId).eq("emoji", "ack"),
+  ]);
+  const acked = new Set((myAcks ?? []).map((a) => a.message_id));
+  const toConfirm = (announcements ?? []).filter((a) => {
+    const channel = channelById.get(a.channel_id);
+    return a.author_id !== userId && !acked.has(a.id) && channel && canSee(channel, userId);
+  });
 
   // Due today, overdue, or undated: what needs you now.
   const dueNow = (priorityTasks ?? []).filter((t) => !t.due_date || t.due_date <= today).slice(0, 8);
@@ -183,13 +196,8 @@ export default async function DashboardPage() {
       return lastDay && lastDay >= today;
     })
     .slice(0, 4);
-  // A group arriving within the next week is worth a line in the briefing.
-  const nextGroup = upcomingGroups.find(
-    (g) => g.status === "confirmed" && g.arrival_date && g.arrival_date <= isoDaysFromToday(7)
-  );
 
   const firstName = fullName?.split(" ")?.[0];
-  const now = new Date();
   const caughtUp =
     dueNow.length === 0 && (pendingEmails?.length ?? 0) === 0;
 
@@ -207,35 +215,11 @@ export default async function DashboardPage() {
   const topOverdueTask = dueNow.find(
     (t) => t.due_date && t.due_date < today
   );
-  const briefingParts: string[] = [];
-  if ((urgentEmailCount ?? 0) > 0) {
-    briefingParts.push(
-      `${urgentEmailCount} urgent email${urgentEmailCount === 1 ? "" : "s"} waiting`
-    );
-  } else if ((pendingEmailCount ?? 0) > 0) {
-    briefingParts.push(
-      `${pendingEmailCount} draft${pendingEmailCount === 1 ? "" : "s"} to review`
-    );
-  }
-  if ((overdueCount ?? 0) > 0) {
-    briefingParts.push(`${overdueCount} task${overdueCount === 1 ? "" : "s"} overdue`);
-  }
-  if (nextGroup) {
-    briefingParts.push(
-      `${nextGroup.name}${nextGroup.headcount ? ` (${nextGroup.headcount})` : ""} arriving ${arrivalWord(nextGroup.arrival_date)}`
-    );
-  }
-
   const retreatSection = (
     <>
       {upcomingGroups.length > 0 && (
         <section className="mt-8">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-semibold text-foreground">Upcoming retreat groups</h2>
-            <Link href="/groups" className="text-sm font-medium text-primary hover:underline">
-              All groups
-            </Link>
-          </div>
+          <SectionHeading title="Upcoming retreat groups" icon={Trees} count={upcomingGroups.length} href="/groups" linkLabel="All groups" tone="forest" />
           <Card className="px-3">
             <div className="divide-y divide-border">
               {upcomingGroups.map((g) => (
@@ -248,74 +232,104 @@ export default async function DashboardPage() {
     </>
   );
 
+  // The hour at camp (not the server's clock) decides the greeting and the sky.
+  const campHour = Number(
+    new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: "America/Toronto" }).format(new Date())
+  );
+  // Demo only: ?hour=19 previews the evening sky without waiting for it.
+  const hour =
+    !isSupabaseConfigured() && previewHour && /^\d{1,2}$/.test(previewHour) ? Number(previewHour) % 24 : campHour;
+  const unreadChat = (await getChannelList()).reduce((sum, c) => sum + c.unread, 0);
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+  const heroChips: HeroChip[] = [
+    ...((urgentEmailCount ?? 0) > 0
+      ? [{ label: `${plural(urgentEmailCount ?? 0, "urgent email")}`, href: "/email-assistant", icon: Mail, tone: "urgent" as const }]
+      : (pendingEmailCount ?? 0) > 0
+        ? [{ label: `${plural(pendingEmailCount ?? 0, "draft")} to review`, href: "/email-assistant", icon: Mail }]
+        : []),
+    ...((overdueCount ?? 0) > 0
+      ? [{ label: `${plural(overdueCount ?? 0, "task")} overdue`, href: "/tasks", icon: ListTodo, tone: "urgent" as const }]
+      : []),
+    ...(toConfirm.length > 0
+      ? [{ label: `${plural(toConfirm.length, "announcement")} to confirm`, href: "#confirm", icon: Megaphone, tone: "urgent" as const }]
+      : []),
+    ...(unreadChat > 0 ? [{ label: `${plural(unreadChat, "unread message")}`, href: "/chat", icon: MessageSquare }] : []),
+  ];
+
+  // Up next: the next confirmed group within two weeks.
+  const soonest = upcomingGroups.find(
+    (g) => g.status === "confirmed" && g.arrival_date && g.arrival_date >= today && g.arrival_date <= isoDaysFromToday(14)
+  );
+  const daysAway = soonest?.arrival_date
+    ? Math.round((new Date(soonest.arrival_date + "T00:00:00").getTime() - new Date(today + "T00:00:00").getTime()) / 86_400_000)
+    : null;
+  const groupChannel = soonest ? (channelRows ?? []).find((c) => c.retreat_group_id === soonest.id) : undefined;
+  const heroNext: HeroNext | null = soonest
+    ? {
+        kicker: "Up next",
+        title: soonest.name,
+        when:
+          daysAway === 0
+            ? "Arriving today"
+            : `Arrives ${new Date(soonest.arrival_date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}`,
+        countdown: daysAway && daysAway > 0 ? `${daysAway} ${daysAway === 1 ? "day to go" : "days to go"}` : null,
+        detail: [soonest.headcount ? `${soonest.headcount} people` : null, groupChannel ? "Open the group chat" : "Open booking"]
+          .filter(Boolean)
+          .join(" · "),
+        href: groupChannel ? `/chat/${groupChannel.name}` : `/groups/${soonest.id}`,
+      }
+    : null;
+
+  const heroStats: HeroStat[] = [
+    { label: "Open tasks", value: String(openTaskCount ?? 0), sub: overdueCount ? `${overdueCount} late` : undefined, href: "/tasks", alert: Boolean(overdueCount) },
+    { label: "Drafts", value: String(pendingEmailCount ?? 0), href: "/email-assistant" },
+    isDirector
+      ? {
+          label: teamLate ? `Team · ${teamLate} late` : "Team today",
+          value: `${teamDone}`,
+          sub: `of ${teamTasks.length}`,
+          href: "/tasks/team",
+          progress: teamTasks.length ? Math.round((teamDone / teamTasks.length) * 100) : 0,
+          alert: teamLate > 0,
+        }
+      : { label: "Unread", value: String(unreadChat), href: "/chat" },
+  ];
+
   return (
     <div>
-      {/* Hero */}
-      <div className="relative isolate overflow-hidden rounded-3xl bg-stream text-white p-5 pb-12 md:p-7 md:pb-14 mb-5 shadow-card">
-        <Contours className="absolute inset-0 h-full w-full text-white/[0.08]" />
-        <Treeline className="absolute -bottom-px inset-x-0 h-10 text-white/10 md:h-12" />
-        <div className="relative">
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-white/80">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold text-white">
-              {season === "summer" ? <Sun size={13} /> : <Trees size={13} />}
-              {SEASON_LABELS[season]}
-            </span>
-            {now.toLocaleDateString("en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
-          <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight mt-1">
-            {greetingForHour(now.getHours())}
-            {firstName ? `, ${firstName}` : ""}
-          </h1>
-          <p className="text-sm text-white/80 mt-1">
-            {caughtUp
-              ? season === "summer"
-                ? "All clear - go be with the campers."
-                : "All clear - enjoy the quiet between groups."
-              : briefingParts.length > 0
-                ? `Today: ${joinList(briefingParts)}.`
-                : "Here's what needs you before you head out."}
-          </p>
-          {(topUrgentEmail || topOverdueTask) && (
-            <Link
-              href={
-                topUrgentEmail ? `/email-assistant/${topUrgentEmail.id}` : "/tasks"
+      <HomeHero
+        hour={hour}
+        greeting={`${greetingForHour(hour)}${firstName ? `, ${firstName}` : ""}`}
+        dateLabel={new Date(today + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        seasonLabel={SEASON_LABELS[season]}
+        summer={season === "summer"}
+        summary={
+          caughtUp
+            ? season === "summer"
+              ? "All clear. Go be with the campers."
+              : "All clear. Enjoy the quiet between groups."
+            : heroChips.length
+              ? "Here's what needs you today."
+              : "Nothing urgent. Here's the day at a glance."
+        }
+        chips={heroChips}
+        urgent={
+          topUrgentEmail
+            ? {
+                label:
+                  topUrgentEmail.ai_summary ||
+                  `Urgent email from ${topUrgentEmail.sender_name || topUrgentEmail.sender_email || "a parent"}`,
+                href: `/email-assistant/${topUrgentEmail.id}`,
               }
-              className="mt-3 flex items-start gap-2 rounded-xl bg-white/10 border border-white/20 px-3 py-2.5 hover:bg-white/15 transition-colors"
-            >
-              <Sparkles size={15} className="mt-0.5 shrink-0 text-white/90" />
-              <span className="text-sm text-white/95 min-w-0">
-                <span className="font-medium">Can&apos;t wait: </span>
-                {topUrgentEmail
-                  ? topUrgentEmail.ai_summary ||
-                    `Urgent email from ${topUrgentEmail.sender_name || topUrgentEmail.sender_email || "a parent"}`
-                  : topOverdueTask!.title}
-              </span>
-            </Link>
-          )}
-          <div className="flex flex-wrap gap-2 mt-4">
-            <LinkButton
-              href="/email-assistant/new"
-              size="sm"
-              className="!bg-white !text-primary hover:!bg-white/90"
-            >
-              <Mail size={15} /> Paste an email
-            </LinkButton>
-            {gmailAccount && (
-              <LinkButton
-                href="/email-assistant"
-                size="sm"
-                className="!bg-white/15 !text-white border border-white/25 hover:!bg-white/25"
-              >
-                <ArrowRight size={15} /> Review inbox
-              </LinkButton>
-            )}
-          </div>
-        </div>
-      </div>
+            : topOverdueTask
+              ? { label: topOverdueTask.title, href: `/tasks/${topOverdueTask.id}` }
+              : null
+        }
+        next={heroNext}
+        stats={heroStats}
+        showReviewInbox={Boolean(gmailAccount)}
+      />
 
       {/* Onboarding checklist */}
       {onboarding && (
@@ -374,112 +388,33 @@ export default async function DashboardPage() {
         </Card>
       )}
 
-      {/* Stats */}
-      <div className={`grid gap-3 mb-5 ${isDirector ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2"}`}>
-        {isDirector && (
-          <Link href="/tasks/team" className="group col-span-2 sm:col-span-1 sm:order-last">
-            <Card className="p-4 transition-shadow group-hover:shadow-card-hover">
-              <div className="flex items-center justify-between">
-                <p className="font-display text-4xl font-semibold text-foreground">
-                  {teamDone}
-                  <span className="text-xl text-muted">/{teamTasks.length}</span>
-                </p>
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
-                  <UsersRound size={18} />
+      {/* Announcements waiting for my OK come before everything else */}
+      {toConfirm.length > 0 && (
+        <div id="confirm" className="mb-5 scroll-mt-20 space-y-3">
+          {toConfirm.map((a) => (
+            <Card key={a.id} className="overflow-hidden border-accent/40">
+              <div className="flex items-center gap-2 bg-accent px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white">
+                <Megaphone size={14} /> Please confirm
+                <span className="ml-auto font-medium normal-case tracking-normal opacity-90">
+                  {a.author_name} · {formatRelativeTime(a.created_at)}
                 </span>
               </div>
-              <p className="text-sm text-muted mt-1 flex items-center gap-1">
-                Team done today
-                {teamLate > 0 && <span className="font-semibold text-danger">· {teamLate} late</span>}
-                <ArrowRight
-                  size={13}
-                  className="opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0"
-                />
-              </p>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-muted">
-                <div
-                  className="h-full rounded-full bg-forest"
-                  style={{ width: `${teamTasks.length ? Math.round((teamDone / teamTasks.length) * 100) : 0}%` }}
-                />
+              <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+                <p className="flex-1 text-[15px] text-foreground">{a.body}</p>
+                <form action={acknowledge.bind(null, a.id)}>
+                  <SubmitButton pendingText="Saving...">
+                    <CheckCircle2 size={16} /> Got it
+                  </SubmitButton>
+                </form>
               </div>
             </Card>
-          </Link>
-        )}
-        <Link href="/tasks" className="group">
-          <Card className="p-4 transition-shadow group-hover:shadow-card-hover">
-            <div className="flex items-center justify-between">
-              <p className="font-display text-4xl font-semibold text-foreground">
-                {openTaskCount ?? 0}
-              </p>
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                <ListTodo size={18} />
-              </span>
-            </div>
-            <p className="text-sm text-muted mt-1 flex items-center gap-1">
-              Open tasks
-              <ArrowRight
-                size={13}
-                className="opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0"
-              />
-            </p>
-          </Card>
-        </Link>
-        <Link href="/email-assistant" className="group">
-          <Card className="p-4 transition-shadow group-hover:shadow-card-hover">
-            <div className="flex items-center justify-between">
-              <p className="font-display text-4xl font-semibold text-foreground">
-                {pendingEmailCount ?? 0}
-              </p>
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest-soft text-forest">
-                <Mail size={18} />
-              </span>
-            </div>
-            <p className="text-sm text-muted mt-1 flex items-center gap-1">
-              Drafts to review
-              <ArrowRight
-                size={13}
-                className="opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0"
-              />
-            </p>
-          </Card>
-        </Link>
-      </div>
-
-      {/* Quick add task */}
-      <Card className="p-3 mb-6">
-        <form action={createTask} className="flex gap-2">
-          <Input
-            name="title"
-            placeholder="Quick task... (try the mic on your keyboard)"
-            required
-            className="flex-1 min-w-0"
-            enterKeyHint="done"
-          />
-          <Select
-            name="due_date"
-            defaultValue={today}
-            className="basis-28 grow-0 shrink-0"
-            aria-label="Due date"
-          >
-            <option value={today}>Today</option>
-            <option value={tomorrow}>Tomorrow</option>
-            <option value="">No date</option>
-          </Select>
-          <SubmitButton pendingText="..." className="shrink-0 !px-3">
-            <Plus size={18} />
-          </SubmitButton>
-        </form>
-      </Card>
-
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-6">
       <section>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold text-foreground">Mentions &amp; unread</h2>
-          <Link href="/chat" className="text-sm font-medium text-primary hover:underline">
-            Open chat
-          </Link>
-        </div>
+        <SectionHeading title="Mentions & unread" icon={AtSign} count={forMe.length} href="/chat" linkLabel="Open chat" />
         <Card>
           {forMe.length > 0 ? (
             <ul className="divide-y divide-border">
@@ -489,15 +424,18 @@ export default async function DashboardPage() {
                     href={`/chat/${m.channel?.name ?? ""}`}
                     className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface-muted/50"
                   >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[11px] font-bold text-primary">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#0f3a46] text-[11px] font-bold text-white">
                       {(m.author_name ?? "?").split(" ").map((p) => p[0]).join("").slice(0, 2)}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm">
                         <span className="font-semibold text-foreground">{m.author_name}</span>
                         <span className="text-muted">
-                          {" "}in {m.channel?.kind === "retreat_group" ? "" : "#"}
-                          {m.channel?.name} · {formatRelativeTime(m.created_at)}
+                          {m.channel?.kind === "direct"
+                            ? " · direct message"
+                            : ` in ${m.channel?.kind === "retreat_group" ? "" : "#"}${m.channel?.name}`}
+                          {" · "}
+                          {formatRelativeTime(m.created_at)}
                         </span>
                       </span>
                       <span className="line-clamp-2 text-sm text-foreground">{m.body}</span>
@@ -518,16 +456,27 @@ export default async function DashboardPage() {
       </section>
 
       <section>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold text-foreground">Your tasks today</h2>
-          <Link
-            href="/tasks"
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            View all
-          </Link>
-        </div>
+        <SectionHeading title="Your tasks today" icon={ListTodo} count={dueNow.length} href="/tasks" tone="forest" />
         <Card className="px-3">
+          {/* Quick add, right where the list is */}
+          <form action={createTask} className="-mx-3 flex gap-2 border-b border-border bg-surface-muted/40 px-3 py-2.5">
+            <Input
+              name="title"
+              placeholder="Add a task… (try the mic on your keyboard)"
+              aria-label="New task"
+              required
+              className="h-10 min-w-0 !w-auto flex-1 text-[15px]"
+              enterKeyHint="done"
+            />
+            <Select name="due_date" defaultValue={today} className="h-10 !w-28 shrink-0 text-sm" aria-label="Due date">
+              <option value={today}>Today</option>
+              <option value={tomorrow}>Tomorrow</option>
+              <option value="">No date</option>
+            </Select>
+            <SubmitButton pendingText="…" className="h-10 shrink-0 !px-3">
+              <Plus size={18} />
+            </SubmitButton>
+          </form>
           {dueNow.length > 0 ? (
             <div className="divide-y divide-border">
               {dueNow.map((task) => (
@@ -546,17 +495,14 @@ export default async function DashboardPage() {
       </section>
 
       <section className="lg:col-span-2">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold text-foreground">
-            Drafts awaiting your approval
-          </h2>
-          <Link
-            href="/email-assistant"
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            Open assistant
-          </Link>
-        </div>
+        <SectionHeading
+          title="Drafts awaiting your approval"
+          icon={Mail}
+          count={pendingEmails?.length ?? 0}
+          href="/email-assistant"
+          linkLabel="Open assistant"
+          tone="accent"
+        />
         <Card className="px-3">
           {pendingEmails && pendingEmails.length > 0 ? (
             <div className="divide-y divide-border">
