@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -20,6 +21,8 @@ import {
   EMAIL_URGENCY_STYLES,
 } from "@/lib/labels";
 import { Sparkles, ListTodo, Check } from "lucide-react";
+
+export const metadata: Metadata = { title: "Email draft" };
 
 export const dynamic = "force-dynamic";
 

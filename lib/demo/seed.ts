@@ -13,6 +13,7 @@ function isoTime(offsetMinutes: number): string {
 
 export const DEMO_USER_ID = "demo-user-0001";
 export const DEMO_CAMP_ID = "demo-camp-0001";
+export const DEMO_CAMP_NAME = "Mill Stream Bible Camp";
 export const DEMO_EMAIL = "director@millstream.camp";
 export const DEMO_FULL_NAME = "Alex Rivera";
 
@@ -23,7 +24,7 @@ export function buildSeed(): Record<string, DemoRow[]> {
     camps: [
       {
         id: DEMO_CAMP_ID,
-        name: "Mill Stream Bible Camp",
+        name: DEMO_CAMP_NAME,
         owner_id: DEMO_USER_ID,
         created_at: isoTime(-60 * 24 * 30),
         subscription_status: "trialing",

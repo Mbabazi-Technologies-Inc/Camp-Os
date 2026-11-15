@@ -2,6 +2,7 @@ import Link from "next/link";
 import { signOut } from "@/app/login/actions";
 import { BrandMark } from "@/components/Brand";
 import { LogOut, Settings } from "lucide-react";
+import { brand } from "@/lib/brand";
 
 export function TopBar({ campName }: { campName: string | null }) {
   return (
@@ -13,7 +14,7 @@ export function TopBar({ campName }: { campName: string | null }) {
         <BrandMark size="sm" />
         <div>
           <p className="text-sm font-semibold text-foreground leading-tight tracking-tight">
-            {campName ?? "Mill Stream"}
+            {campName ?? brand.name}
           </p>
         </div>
       </div>

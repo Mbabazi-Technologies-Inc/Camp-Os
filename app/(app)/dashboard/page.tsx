@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireCamp } from "@/lib/auth";
 import { createTask } from "@/app/(app)/tasks/actions";
@@ -21,6 +22,9 @@ import {
   CheckCircle2,
   Circle,
 } from "lucide-react";
+import { brand } from "@/lib/brand";
+
+export const metadata: Metadata = { title: "Today" };
 
 export const dynamic = "force-dynamic";
 
@@ -219,7 +223,7 @@ export default async function DashboardPage() {
       {/* Onboarding checklist */}
       {onboarding && (
         <Card className="p-4 mb-5">
-          <p className="font-semibold text-foreground mb-1">Set up CampFlow</p>
+          <p className="font-semibold text-foreground mb-1">Set up {brand.name}</p>
           <p className="text-sm text-muted mb-3">
             Three quick steps and the AI starts writing replies that sound like your camp.
           </p>

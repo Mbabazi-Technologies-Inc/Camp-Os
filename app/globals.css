@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /*
-  Mill Stream theme - river blues and forest greens for a camp on the
-  Pigeon River. All brand colors live in this block: swap in exact brand
+  Product theme - river blues and forest greens. All brand colors live in
+  this block (lib/brand.ts mirrors the icon colours): swap in exact brand
   hex codes here and the whole app follows.
 */
 :root {

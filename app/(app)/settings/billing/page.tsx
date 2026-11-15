@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireCamp, getCampBilling } from "@/lib/auth";
 import { isStripeConfigured } from "@/lib/env";
@@ -7,6 +8,9 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import type { SubscriptionStatus } from "@/lib/supabase/database.types";
+import { brand } from "@/lib/brand";
+
+export const metadata: Metadata = { title: "Billing" };
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +30,7 @@ export default async function BillingPage({
   const { supabase, campId, role } = await requireCamp();
 
   const header = (
-    <PageHeader title="Billing" description="Your CampFlow plan: CA$79/month per camp." />
+    <PageHeader title="Billing" description={`Your ${brand.name} plan: CA$79/month per camp.`} />
   );
   const back = (
     <p className="mt-4 text-sm">
@@ -84,7 +88,7 @@ export default async function BillingPage({
       )}
       {(locked || billing.readOnly) && (
         <p className="mb-4 rounded-lg bg-warning-soft text-warning text-sm px-3 py-2">
-          Your free trial has ended, so CampFlow is read-only. Your data is safe; subscribe
+          Your free trial has ended, so {brand.name} is read-only. Your data is safe; subscribe
           to keep making changes.
         </p>
       )}

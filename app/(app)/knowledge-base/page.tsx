@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createKnowledgeEntry, addStarterPack } from "./actions";
@@ -8,6 +9,8 @@ import { Input, Textarea, Select, Label } from "@/components/ui/Field";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { KNOWLEDGE_CATEGORY_LABELS } from "@/lib/labels";
 import type { KnowledgeCategory } from "@/lib/supabase/database.types";
+
+export const metadata: Metadata = { title: "Knowledge" };
 
 export const dynamic = "force-dynamic";
 

@@ -6,6 +6,7 @@ import { NAV_ITEMS } from "./nav-items";
 import { signOut } from "@/app/login/actions";
 import { BrandMark } from "@/components/Brand";
 import { LogOut, Settings } from "lucide-react";
+import { brand } from "@/lib/brand";
 
 export function Sidebar({
   campName,
@@ -23,7 +24,7 @@ export function Sidebar({
           <BrandMark size="md" />
           <div>
             <p className="font-semibold text-foreground leading-tight tracking-tight">
-              {campName ?? "Mill Stream"}
+              {campName ?? brand.name}
             </p>
             <p className="text-xs text-muted leading-tight">Camp office</p>
           </div>

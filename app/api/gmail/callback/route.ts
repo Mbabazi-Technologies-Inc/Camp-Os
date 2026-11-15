@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireWritableCamp } from "@/lib/auth";
 import { exchangeCodeForTokens, getGmailAddress } from "@/lib/gmail";
+import { brand } from "@/lib/brand";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokens.refresh_token) {
       return fail(
-        "Google didn't grant offline access. Remove CampFlow from your Google account permissions and try connecting again."
+        `Google didn't grant offline access. Remove ${brand.name} from your Google account permissions and try connecting again.`
       );
     }
 

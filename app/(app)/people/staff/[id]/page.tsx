@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { updateStaff, deleteStaff } from "../../actions";
@@ -6,6 +7,8 @@ import { Card } from "@/components/ui/Card";
 import { Input, Textarea, Label } from "@/components/ui/Field";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+
+export const metadata: Metadata = { title: "Staff member" };
 
 export const dynamic = "force-dynamic";
 

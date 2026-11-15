@@ -27,4 +27,7 @@ Supabase (auth + Postgres with RLS), OpenAI. Product plan and milestones: `SPEC.
 - The service-role key is server-only (route handlers, webhooks). Never import it into
   client components or expose it via `NEXT_PUBLIC_*`.
 - Don't log email bodies or camper/guardian records.
+- The product name is a working name: it lives only in `lib/brand.ts` (use `brand.name`).
+  `tests/unit/brand.test.ts` fails if it, or "Mill Stream", is hard-coded elsewhere in
+  `app/`, `components/` or `lib/` (demo data in `lib/demo/` may say Mill Stream).
 - Work on `claude/*` branches and open PRs. Never push to `main`.
