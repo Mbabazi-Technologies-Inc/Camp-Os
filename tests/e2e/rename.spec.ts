@@ -14,5 +14,6 @@ test("NEXT_PUBLIC_PRODUCT_NAME renames the product on the login page and in titl
 
   await page.getByRole("button", { name: "Explore the demo" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
-  await expect(page).toHaveTitle(`Today · ${RENAMED}`);
+  // The app may prefix the title with an unread-chat count, e.g. "(3) ".
+  await expect(page).toHaveTitle(new RegExp(`^(\\(\\d+\\) )?Today · ${RENAMED}$`));
 });

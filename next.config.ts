@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const exfat = process.env.EXFAT_DRIVE === "1";
+
 const nextConfig: NextConfig = {
   // Lets the e2e rename check build a second copy (NEXT_PUBLIC_PRODUCT_NAME is
   // baked in at build time) without overwriting the main .next build.
@@ -14,6 +16,16 @@ const nextConfig: NextConfig = {
     "*.gitpod.io",
     "*.gitpod.dev",
   ],
+  // EXFAT_DRIVE=1 is set by .claude/launch.json when the project sits on an
+  // exFAT drive. macOS writes "._" sidecar files beside everything in .next
+  // there: Turbopack's dev cache fails to reopen with them, and the image
+  // optimizer serves them instead of the photos.
+  experimental: {
+    turbopackFileSystemCacheForDev: !exfat,
+  },
+  images: {
+    unoptimized: exfat,
+  },
 };
 
 export default nextConfig;

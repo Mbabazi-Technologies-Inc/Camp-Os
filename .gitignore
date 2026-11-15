@@ -23,6 +23,8 @@
 
 # misc
 .DS_Store
+# macOS sidecar files written on exFAT/FAT drives
+._*
 *.pem
 
 # debug

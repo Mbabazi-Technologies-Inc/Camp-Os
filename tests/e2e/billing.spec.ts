@@ -16,8 +16,8 @@ test("demo: billing shows 'Billing not configured' and the app stays writable", 
   // Not gated: a change still goes through.
   const title = `Billing e2e task ${Date.now()}-${test.info().project.name}`;
   await page.goto("/tasks");
-  await page.locator("#title").fill(title);
-  await page.getByRole("button", { name: "Add task" }).click();
+  await page.getByRole("textbox", { name: "New task" }).first().fill(title);
+  await page.getByRole("button", { name: "Add task" }).first().click();
   await expect(page.getByText(title)).toBeVisible();
   await expect(page).toHaveURL(/\/tasks/);
 });

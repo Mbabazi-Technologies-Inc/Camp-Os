@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { UsersRound as UsersRoundIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createStaff } from "../actions";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { initials } from "@/lib/initials";
+import { AddPanel } from "@/components/ui/AddPanel";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Input, Textarea, Label } from "@/components/ui/Field";
+import { StaffFields, staffTags } from "@/components/people/StaffFields";
+import { teamsOf } from "@/lib/routines";
+import { todayISODate } from "@/lib/dates";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { SearchBox } from "@/components/people/SearchBox";
 
@@ -25,50 +30,30 @@ export default async function StaffPage({
   if (q?.trim()) {
     const term = q.trim().replaceAll("%", "").replaceAll(",", "");
     query = query.or(
-      `first_name.ilike.%${term}%,last_name.ilike.%${term}%,role.ilike.%${term}%`
+      `first_name.ilike.%${term}%,last_name.ilike.%${term}%,role.ilike.%${term}%,team.ilike.%${term}%`
     );
   }
-  const { data: staff } = await query;
+  const [{ data: staff }, { data: everyone }] = await Promise.all([
+    query,
+    supabase.from("staff").select("*"),
+  ]);
+  const teams = teamsOf(everyone ?? []);
+  const today = todayISODate();
 
   return (
     <div>
-      <PageHeader title="Staff" description="Basic records for your camp staff." />
+      <PageHeader icon={UsersRoundIcon} eyebrow="People" title="Staff" description="Basic records for your camp staff." />
 
-      <Card className="p-4 mb-6">
+      <AddPanel label="Add staff member">
         <form action={createStaff} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="first_name">First name</Label>
-              <Input id="first_name" name="first_name" required />
-            </div>
-            <div>
-              <Label htmlFor="last_name">Last name</Label>
-              <Input id="last_name" name="last_name" required />
-            </div>
-            <div className="col-span-2">
-              <Label htmlFor="role">Role</Label>
-              <Input id="role" name="role" placeholder="Counselor, Lifeguard, Nurse..." />
-            </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" />
-            </div>
-            <div>
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" name="phone" type="tel" />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea id="notes" name="notes" rows={2} />
-          </div>
+          <StaffFields teams={teams} />
           <SubmitButton pendingText="Saving..." className="w-full sm:w-auto">
             Add staff member
           </SubmitButton>
         </form>
-      </Card>
+      </AddPanel>
 
-      <SearchBox placeholder="Search staff by name or role..." defaultValue={q} />
+      <SearchBox placeholder="Search staff by name, role or team..." defaultValue={q} />
 
       <Card className="px-3">
         {staff && staff.length > 0 ? (
@@ -77,16 +62,28 @@ export default async function StaffPage({
               <Link
                 key={member.id}
                 href={`/people/staff/${member.id}`}
-                className="flex items-center justify-between gap-3 py-3 px-1"
+                className="group flex items-center gap-3 py-3 px-1"
               >
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground truncate">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold bg-accent-soft text-[#9a5a12]">
+                  {initials(`${member.first_name} ${member.last_name}`)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground truncate transition-colors group-hover:text-primary">
                     {member.first_name} {member.last_name}
                   </p>
                   <p className="text-sm text-muted truncate">
                     {[member.role, member.phone, member.email].filter(Boolean).join(" · ") ||
                       "No details on file"}
                   </p>
+                  {staffTags(member, today).length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {staffTags(member, today).map((tag) => (
+                        <span key={tag.label} className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${tag.tone}`}>
+                          {tag.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </Link>
             ))}

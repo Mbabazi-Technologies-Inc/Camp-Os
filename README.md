@@ -8,6 +8,12 @@ replies grounded in your own camp knowledge base, but every reply waits for you 
 edit, and approve it. Even with Gmail connected, approved replies land in your Gmail
 **drafts** folder - the app has no send permission at all.
 
+## Public website
+
+The Mill Stream Bible Camp public website used to live in this repository. It now has its
+own repository, `Mbabazi-Technologies-Inc/millstream-website`. This repository is only the
+CampFlow camp-office app.
+
 ## Tech stack
 
 - Next.js (App Router) + TypeScript

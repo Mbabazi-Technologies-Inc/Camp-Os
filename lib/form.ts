@@ -17,3 +17,14 @@ export function field(formData: FormData, name: string): string {
 
   return "";
 }
+
+/** Every value of a repeated field (checkboxes), accepting React's namespaced names too. */
+export function fields(formData: FormData, name: string): string[] {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const matcher = new RegExp(`^(_\\d+_)?${escaped}$`);
+  const values: string[] = [];
+  for (const [key, value] of formData.entries()) {
+    if (typeof value === "string" && matcher.test(key)) values.push(value);
+  }
+  return values;
+}

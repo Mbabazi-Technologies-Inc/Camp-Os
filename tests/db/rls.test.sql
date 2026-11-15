@@ -268,6 +268,143 @@ begin
   end if;
 end $$;
 
+-- ------------------------------------- staff app tables (chat, retreats)
+-- Fixtures, as the superuser: camp B has a retreat group, a routine, a
+-- channel and a message; camp A has a standing channel and a direct message
+-- between director A and nobody else.
+insert into public.retreat_groups (camp_id, name)
+select camp_b, 'B Retreat' from public._ids;
+insert into public.routines (camp_id, title, target_type)
+select camp_b, 'B routine', 'team' from public._ids;
+insert into public.channels (camp_id, name, kind)
+select camp_b, 'b-general', 'standing' from public._ids;
+insert into public.messages (camp_id, channel_id, kind, body)
+select camp_b, c.id, 'user', 'B secret' from public._ids, public.channels c where c.name = 'b-general';
+insert into public.channels (camp_id, name, kind)
+select camp_a, 'a-general', 'standing' from public._ids;
+insert into public.channels (camp_id, name, kind, members)
+select camp_a, 'dm-dir-a', 'direct', array['aaaaaaaa-0000-0000-0000-000000000001'::uuid] from public._ids;
+
+create table public._chat as
+select
+  (select id from public.channels where name = 'b-general') as b_channel,
+  (select id from public.messages where body = 'B secret') as b_message,
+  (select id from public.channels where name = 'a-general') as a_channel,
+  (select id from public.channels where name = 'dm-dir-a') as a_dm;
+grant select on public._chat to authenticated;
+
+-- Director A: can't see or write camp B's staff-app rows.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
+do $$
+declare n int;
+begin
+  if exists (select 1 from public.retreat_groups where name = 'B Retreat') then
+    raise exception 'director A can read camp B retreat groups';
+  end if;
+  if exists (select 1 from public.routines where title = 'B routine') then
+    raise exception 'director A can read camp B routines';
+  end if;
+  if exists (select 1 from public.channels where name = 'b-general')
+     or exists (select 1 from public.messages where body = 'B secret') then
+    raise exception 'director A can read camp B chat';
+  end if;
+
+  begin
+    insert into public.retreat_groups (camp_id, name) values ((select camp_b from public._ids), 'Evil');
+    raise exception 'director A created a camp B retreat group';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    insert into public.channels (camp_id, name) values ((select camp_b from public._ids), 'evil');
+    raise exception 'director A created a camp B channel';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- Posting into camp B's channel, even labelled as camp A, is rejected.
+  begin
+    insert into public.messages (camp_id, channel_id, author_id, body)
+    values ((select camp_a from public._ids), (select b_channel from public._chat),
+            'aaaaaaaa-0000-0000-0000-000000000001', 'hi B');
+    raise exception 'director A posted into a camp B channel';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    insert into public.message_reactions (message_id, user_id, emoji)
+    values ((select b_message from public._chat), 'aaaaaaaa-0000-0000-0000-000000000001', 'x');
+    raise exception 'director A reacted to a camp B message';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    insert into public.channel_reads (channel_id, user_id)
+    values ((select b_channel from public._chat), 'aaaaaaaa-0000-0000-0000-000000000001');
+    raise exception 'director A marked a camp B channel read';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- Their own camp works: post in a channel and in their direct message.
+  insert into public.messages (camp_id, channel_id, author_id, body)
+  values ((select camp_a from public._ids), (select a_channel from public._chat),
+          'aaaaaaaa-0000-0000-0000-000000000001', 'hello A');
+  insert into public.messages (camp_id, channel_id, author_id, body)
+  values ((select camp_a from public._ids), (select a_dm from public._chat),
+          'aaaaaaaa-0000-0000-0000-000000000001', 'note to self');
+  insert into public.retreat_groups (camp_id, name) values ((select camp_a from public._ids), 'A Retreat');
+end $$;
+commit;
+
+-- Staff A: no director-only routines, no posting into a direct message
+-- they're not in, no posting as someone else, no editing others' messages.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000002';
+do $$
+declare n int;
+begin
+  begin
+    insert into public.routines (camp_id, title, target_type)
+    values ((select camp_a from public._ids), 'Staff routine', 'team');
+    raise exception 'staff created a routine (directors only)';
+  exception when insufficient_privilege then null;
+  end;
+
+  if exists (select 1 from public.channels where name = 'dm-dir-a') then
+    raise exception 'staff can see a direct message they are not in';
+  end if;
+
+  begin
+    insert into public.messages (camp_id, channel_id, author_id, body)
+    values ((select camp_a from public._ids), (select a_dm from public._chat),
+            'aaaaaaaa-0000-0000-0000-000000000002', 'butting in');
+    raise exception 'staff posted into a direct message they are not in';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    insert into public.messages (camp_id, channel_id, author_id, body)
+    values ((select camp_a from public._ids), (select a_channel from public._chat),
+            'aaaaaaaa-0000-0000-0000-000000000001', 'pretending to be the director');
+    raise exception 'staff posted as the director';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    update public.messages set body = 'edited by staff' where body = 'hello A';
+    raise exception 'staff edited someone else''s message';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- Posting as themselves in a camp channel works.
+  insert into public.messages (camp_id, channel_id, author_id, body)
+  values ((select camp_a from public._ids), (select a_channel from public._chat),
+          'aaaaaaaa-0000-0000-0000-000000000002', 'staff hello');
+end $$;
+commit;
+
 -- ----------------------------------------------- signed-out visitor (anon)
 begin;
 set local role anon;
