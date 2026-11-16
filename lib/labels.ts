@@ -2,6 +2,7 @@ import type {
   EmailCategory,
   EmailUrgency,
   KnowledgeCategory,
+  RetreatGroupStatus,
   TaskPriority,
 } from "@/lib/supabase/database.types";
 
@@ -47,4 +48,18 @@ export const EMAIL_URGENCY_STYLES: Record<EmailUrgency, string> = {
   medium: "bg-warning-soft text-warning",
   high: "bg-accent-soft text-accent",
   urgent: "bg-danger-soft text-danger",
+};
+
+export const RETREAT_STATUS_LABELS: Record<RetreatGroupStatus, string> = {
+  inquiry: "Inquiry",
+  tentative: "Tentative",
+  confirmed: "Confirmed",
+  cancelled: "Cancelled",
+};
+
+export const RETREAT_STATUS_STYLES: Record<RetreatGroupStatus, string> = {
+  inquiry: "bg-primary-soft text-primary",
+  tentative: "bg-warning-soft text-warning",
+  confirmed: "bg-forest-soft text-forest",
+  cancelled: "bg-surface-muted text-muted",
 };

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
-import { DEMO_COOKIE } from "@/lib/demo/client";
+import { DEMO_COOKIE, DEMO_VIEW_AS_COOKIE } from "@/lib/demo/client";
 import { field } from "@/lib/form";
 
 // Without a database the app runs on sample data; this cookie stands in for
@@ -96,10 +96,24 @@ export async function signOut() {
   if (!isSupabaseConfigured()) {
     const cookieStore = await cookies();
     cookieStore.delete(DEMO_COOKIE);
+    cookieStore.delete(DEMO_VIEW_AS_COOKIE);
     redirect("/login");
   }
 
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+/** Demo only: see the app as one staff member sees it ("" goes back to the director). */
+export async function setDemoViewAs(formData: FormData) {
+  if (isSupabaseConfigured()) return;
+  const staffId = field(formData, "staff_id").trim();
+  const cookieStore = await cookies();
+  if (staffId) {
+    cookieStore.set(DEMO_VIEW_AS_COOKIE, staffId, { httpOnly: true, sameSite: "lax", path: "/" });
+  } else {
+    cookieStore.delete(DEMO_VIEW_AS_COOKIE);
+  }
+  redirect(staffId ? "/tasks" : "/tasks/team");
 }

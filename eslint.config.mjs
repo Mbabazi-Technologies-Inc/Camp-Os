@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // The Expo shell has its own toolchain:
     "mobile/**",
+    // macOS sidecar files written on exFAT/FAT drives:
+    "**/._*",
   ]),
 ]);
 

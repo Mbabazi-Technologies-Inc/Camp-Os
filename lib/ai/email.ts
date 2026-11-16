@@ -1,3 +1,4 @@
+import { todayISODate } from "@/lib/dates";
 import { getOpenAIClient } from "@/lib/openai";
 import { isOpenAIConfigured } from "@/lib/env";
 import { analyzeOffline } from "./offline";
@@ -74,7 +75,7 @@ export async function analyzeAndDraftEmail(input: {
   const client = getOpenAIClient();
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISODate();
 
   const userMessage = [
     `TODAY'S DATE: ${today}`,

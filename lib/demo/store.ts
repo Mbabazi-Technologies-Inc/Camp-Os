@@ -2,7 +2,7 @@
 // product can be explored without a database. Data lives for the lifetime of
 // the server process and resets when it restarts.
 
-import { buildSeed, type DemoRow } from "./seed";
+import { buildSeed, DEMO_CAMP_ID, DEMO_USER_ID, type DemoRow } from "./seed";
 
 type Tables = Record<string, DemoRow[]>;
 
@@ -148,11 +148,53 @@ const COLUMN_DEFAULTS: Record<string, DemoRow> = {
     status: "open",
     source_email_id: null,
     created_by: null,
+    assigned_to: null,
+    routine_id: null,
+    due_time: null,
+    completed_at: null,
+    checklist: null,
+    retreat_group_id: null,
   },
   knowledge_base: { category: "other" },
   guardians: { email: null, phone: null, relationship: null, notes: null },
   campers: { cabin: null, age: null, guardian_id: null, notes: null },
-  staff: { role: null, email: null, phone: null, notes: null },
+  staff: {
+    role: null,
+    email: null,
+    phone: null,
+    notes: null,
+    team: null,
+    season: "year_round",
+    under_18: false,
+    access_ends: null,
+    profile_id: null,
+    status_emoji: null,
+    status_text: null,
+    status_date: null,
+  },
+  routines: {
+    created_by: null,
+    description: null,
+    target_staff_id: null,
+    target_team: null,
+    frequency: "daily",
+    weekdays: null,
+    due_time: null,
+    ends_on: null,
+    priority: "medium",
+    active: true,
+    checklist: null,
+  },
+  retreat_groups: {
+    contact_name: null,
+    contact_email: null,
+    contact_phone: null,
+    arrival_date: null,
+    departure_date: null,
+    headcount: null,
+    status: "inquiry",
+    notes: null,
+  },
   email_drafts: {
     sender_name: null,
     sender_email: null,
@@ -171,6 +213,9 @@ const COLUMN_DEFAULTS: Record<string, DemoRow> = {
     status: "pending",
   },
   gmail_accounts: { last_synced_at: null, connected_by: null },
+  channels: { kind: "standing", description: null, retreat_group_id: null, members: null, pinned_message_id: null, archived: false, created_by: null },
+  message_reactions: { user_name: null },
+  messages: { author_id: null, author_name: null, kind: "user", task_id: null, parent_id: null },
 };
 
 export class DemoQuery implements PromiseLike<DemoResult> {
@@ -394,4 +439,34 @@ export function demoFrom(table: string): DemoQuery {
 
 export function resetDemoData(): void {
   globalForDemo.__millstreamDemo = buildSeed();
+}
+
+/**
+ * Gives a staff record its own demo login (a staff-role profile linked to it),
+ * so the director can see the app the way that person does. Returns the user,
+ * or null for the director's own record or an unknown id.
+ */
+export function ensureDemoStaffLogin(
+  staffId: string
+): { id: string; email: string; user_metadata: { full_name: string } } | null {
+  const member = rowsOf("staff").find((row) => row.id === staffId);
+  if (!member || member.profile_id === DEMO_USER_ID) return null;
+
+  const userId = `demo-user-${staffId}`;
+  const fullName = `${member.first_name} ${member.last_name}`;
+  member.profile_id = userId;
+  if (!rowsOf("profiles").some((row) => row.id === userId)) {
+    rowsOf("profiles").push({
+      id: userId,
+      full_name: fullName,
+      camp_id: DEMO_CAMP_ID,
+      role: "staff",
+      created_at: new Date().toISOString(),
+    });
+  }
+  return {
+    id: userId,
+    email: String(member.email ?? `${String(member.first_name).toLowerCase()}@millstream.camp`),
+    user_metadata: { full_name: fullName },
+  };
 }
