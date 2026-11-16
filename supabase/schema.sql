@@ -701,3 +701,55 @@ drop policy if exists "Directors manage their camp routines" on public.routines;
 create policy "Directors manage their camp routines" on public.routines
   for all using (camp_id = public.user_camp_id() and public.is_camp_director())
   with check (camp_id = public.user_camp_id() and public.is_camp_director());
+
+-- ---------------------------------------------------------------------------
+-- calendar_accounts: one connected Google Calendar per camp. Confirmed
+-- retreat groups are written to it as all-day events so everyone on staff
+-- sees who is on site, and the dashboard lists what's coming up. Tokens carry
+-- only the calendar.events scope (no mail access). Like gmail_accounts, tokens
+-- are member-readable for now; Milestone 3 moves them to a service-role table.
+-- ---------------------------------------------------------------------------
+create table if not exists public.calendar_accounts (
+  camp_id uuid primary key references public.camps (id) on delete cascade,
+  email text not null,
+  calendar_id text not null default 'primary',
+  access_token text not null,
+  refresh_token text not null,
+  expires_at timestamptz not null,
+  connected_by uuid references auth.users (id) on delete set null,
+  last_synced_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.calendar_accounts enable row level security;
+
+-- Members read it and keep it fresh (token refresh and last_synced_at happen
+-- whenever anyone saves a retreat group); only directors connect or remove it.
+drop policy if exists "Members manage their camp calendar account" on public.calendar_accounts;
+drop policy if exists "Members read their camp calendar account" on public.calendar_accounts;
+create policy "Members read their camp calendar account" on public.calendar_accounts
+  for select using (camp_id = public.user_camp_id());
+drop policy if exists "Members refresh their camp calendar account" on public.calendar_accounts;
+create policy "Members refresh their camp calendar account" on public.calendar_accounts
+  for update using (camp_id = public.user_camp_id())
+  with check (camp_id = public.user_camp_id());
+drop policy if exists "Directors connect a calendar" on public.calendar_accounts;
+create policy "Directors connect a calendar" on public.calendar_accounts
+  for insert with check (camp_id = public.user_camp_id() and public.is_camp_director());
+drop policy if exists "Directors disconnect a calendar" on public.calendar_accounts;
+create policy "Directors disconnect a calendar" on public.calendar_accounts
+  for delete using (camp_id = public.user_camp_id() and public.is_camp_director());
+
+-- Staff may only refresh tokens and the sync time, not repoint the account.
+revoke update on public.calendar_accounts from anon, authenticated;
+grant update (access_token, refresh_token, expires_at, last_synced_at, updated_at)
+  on public.calendar_accounts to authenticated;
+
+drop trigger if exists calendar_accounts_set_updated_at on public.calendar_accounts;
+create trigger calendar_accounts_set_updated_at
+  before update on public.calendar_accounts
+  for each row execute procedure public.set_updated_at();
+
+-- The calendar event a confirmed retreat group was written to.
+alter table public.retreat_groups add column if not exists google_event_id text;

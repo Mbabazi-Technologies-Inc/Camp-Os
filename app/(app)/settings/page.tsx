@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { requireCamp } from "@/lib/auth";
 import { Settings2 as Settings2Icon } from "lucide-react";
 import { isGmailConfigured } from "@/lib/gmail";
-import { updateCampName, inviteMember, revokeInvite, disconnectGmail } from "./actions";
+import { isCalendarConfigured } from "@/lib/calendar";
+import { updateCampName, inviteMember, revokeInvite, disconnectGmail, disconnectCalendar } from "./actions";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -11,7 +12,7 @@ import { LinkButton } from "@/components/ui/Button";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { formatRelativeTime } from "@/lib/dates";
-import { CreditCard, LogOut, Mail, Tent, UserPlus, UserRound, Users } from "lucide-react";
+import { CalendarDays, CreditCard, LogOut, Mail, Tent, UserPlus, UserRound, Users } from "lucide-react";
 import { signOut } from "@/app/login/actions";
 import { brand } from "@/lib/brand";
 
@@ -27,7 +28,7 @@ export default async function SettingsPage({
   const { notice, error } = await searchParams;
   const { supabase, campId, role, userId, fullName, userEmail } = await requireCamp();
 
-  const [{ data: camp }, { data: members }, { data: invites }, { data: gmailAccount }] =
+  const [{ data: camp }, { data: members }, { data: invites }, { data: gmailAccount }, { data: calendarAccount }] =
     await Promise.all([
       supabase.from("camps").select("name").eq("id", campId).maybeSingle(),
       supabase
@@ -46,10 +47,16 @@ export default async function SettingsPage({
         .select("email, last_synced_at, created_at")
         .eq("camp_id", campId)
         .maybeSingle(),
+      supabase
+        .from("calendar_accounts")
+        .select("email, last_synced_at")
+        .eq("camp_id", campId)
+        .maybeSingle(),
     ]);
 
   const isDirector = role === "director";
   const gmailConfigured = isGmailConfigured();
+  const calendarConfigured = isCalendarConfigured();
 
   return (
     <div>
@@ -165,6 +172,69 @@ export default async function SettingsPage({
             </div>
           )}
         </Card>
+        </div>
+      </section>
+
+      <section className="grid gap-3 border-t border-border py-6 first-of-type:border-t-0 first-of-type:pt-0 md:grid-cols-[14rem_1fr] md:gap-8">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
+            <CalendarDays size={17} className="text-forest" /> Google Calendar
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Confirmed retreat groups appear on the camp calendar, and Home shows what&apos;s coming up.
+          </p>
+        </div>
+        <div className="min-w-0">
+          <Card className="p-4">
+            {calendarAccount ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                    <CalendarDays size={15} className="text-primary" /> {calendarAccount.email}
+                  </p>
+                  <p className="text-xs text-muted mt-0.5">
+                    {calendarAccount.last_synced_at
+                      ? `Last updated ${formatRelativeTime(calendarAccount.last_synced_at)}`
+                      : "Connected - no groups added yet"}
+                  </p>
+                </div>
+                {isDirector && (
+                  <form action={disconnectCalendar}>
+                    <ConfirmButton
+                      confirmMessage="Disconnect Google Calendar? Events already on it stay, but new bookings won't be added."
+                      variant="secondary"
+                    >
+                      Disconnect
+                    </ConfirmButton>
+                  </form>
+                )}
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm text-foreground">
+                  Put confirmed retreat groups on the camp&apos;s Google Calendar as all-day events, so
+                  everyone sees who&apos;s on site. Inquiries and tentative holds stay off it, and
+                  cancelling a group removes its event.
+                </p>
+                <p className="text-xs text-muted mt-1">
+                  This asks only for calendar access - not your email.
+                </p>
+                <div className="mt-3">
+                  {!calendarConfigured ? (
+                    <p className="text-xs rounded-lg bg-warning-soft text-warning px-3 py-2 inline-block">
+                      Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in the environment to enable this.
+                    </p>
+                  ) : isDirector ? (
+                    <LinkButton href="/api/calendar/connect" size="sm">
+                      <CalendarDays size={15} /> Connect Google Calendar
+                    </LinkButton>
+                  ) : (
+                    <p className="text-xs text-muted">Ask a director to connect the calendar.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </Card>
         </div>
       </section>
 

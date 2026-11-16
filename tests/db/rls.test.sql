@@ -405,6 +405,82 @@ begin
 end $$;
 commit;
 
+-- ---------------------------------------------- Google Calendar connection
+-- Camp B has a connected calendar; camp A starts without one.
+insert into public.calendar_accounts (camp_id, email, access_token, refresh_token, expires_at)
+select camp_b, 'b@example.com', 'tok-b', 'ref-b', now() + interval '1 hour' from public._ids;
+
+-- Staff A: can't connect the camp calendar (directors only).
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000002';
+do $$
+begin
+  begin
+    insert into public.calendar_accounts (camp_id, email, access_token, refresh_token, expires_at)
+    values ((select camp_a from public._ids), 'staff@example.com', 't', 'r', now());
+    raise exception 'staff connected a calendar';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+commit;
+
+-- Director A: connects their own, can't see or touch camp B's.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000001';
+do $$
+declare n int;
+begin
+  if exists (select 1 from public.calendar_accounts where email = 'b@example.com') then
+    raise exception 'director A can read camp B calendar tokens';
+  end if;
+
+  begin
+    insert into public.calendar_accounts (camp_id, email, access_token, refresh_token, expires_at)
+    values ((select camp_b from public._ids), 'evil@example.com', 't', 'r', now());
+    raise exception 'director A connected a calendar for camp B';
+  exception when insufficient_privilege then null;
+  end;
+
+  update public.calendar_accounts set access_token = 'stolen' where email = 'b@example.com';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'director A updated camp B calendar tokens'; end if;
+
+  delete from public.calendar_accounts where email = 'b@example.com';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'director A deleted camp B calendar'; end if;
+
+  insert into public.calendar_accounts (camp_id, email, access_token, refresh_token, expires_at)
+  values ((select camp_a from public._ids), 'a@example.com', 'tok-a', 'ref-a', now());
+end $$;
+commit;
+
+-- Staff A: can read and refresh their camp's tokens, but not repoint the
+-- account or disconnect it.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = 'aaaaaaaa-0000-0000-0000-000000000002';
+do $$
+declare n int;
+begin
+  update public.calendar_accounts set access_token = 'tok-a2', last_synced_at = now()
+  where email = 'a@example.com';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'staff could not refresh the calendar token'; end if;
+
+  begin
+    update public.calendar_accounts set calendar_id = 'someone-else' where email = 'a@example.com';
+    raise exception 'staff repointed the camp calendar';
+  exception when insufficient_privilege then null;
+  end;
+
+  delete from public.calendar_accounts where email = 'a@example.com';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'staff disconnected the camp calendar'; end if;
+end $$;
+commit;
+
 -- ----------------------------------------------- signed-out visitor (anon)
 begin;
 set local role anon;
@@ -412,7 +488,8 @@ do $$
 begin
   if (select count(*) from public.camps) + (select count(*) from public.campers)
      + (select count(*) from public.profiles) + (select count(*) from public.guardians)
-     + (select count(*) from public.email_drafts) + (select count(*) from public.gmail_accounts) <> 0 then
+     + (select count(*) from public.email_drafts) + (select count(*) from public.gmail_accounts)
+     + (select count(*) from public.calendar_accounts) <> 0 then
     raise exception 'signed-out visitor can read camp data';
   end if;
 end $$;

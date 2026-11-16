@@ -7,6 +7,7 @@ import { field } from "@/lib/form";
 import { withSaved } from "@/lib/saved";
 import type { RetreatGroupStatus } from "@/lib/supabase/database.types";
 import { postToGroupChannel } from "@/lib/chat";
+import { removeRetreatGroupFromCalendar, syncRetreatGroupToCalendar } from "@/lib/retreat-calendar";
 import { campISODate, formatDateRange, todayISODate } from "@/lib/dates";
 import { routineTargets } from "@/lib/routines";
 import type { TaskPriority } from "@/lib/supabase/database.types";
@@ -39,7 +40,12 @@ export async function createRetreatGroup(formData: FormData) {
   const values = groupFields(formData);
   if (!values.name) return;
 
-  await supabase.from("retreat_groups").insert({ camp_id: campId, ...values });
+  const { data: created } = await supabase
+    .from("retreat_groups")
+    .insert({ camp_id: campId, ...values })
+    .select("id")
+    .maybeSingle();
+  if (created) await syncRetreatGroupToCalendar(supabase, campId, created.id);
   revalidateGroups();
 }
 
@@ -64,13 +70,22 @@ export async function updateRetreatGroup(id: string, formData: FormData) {
     if (before.status !== values.status) notes.push(`Booking is now ${values.status}${by}.`);
     if (notes.length) await postToGroupChannel(supabase, campId, id, notes.join(" "));
   }
+  // Confirmed groups with dates go on the camp's Google Calendar, if connected.
+  await syncRetreatGroupToCalendar(supabase, campId, id);
   revalidateGroups();
   redirect(withSaved("/groups", "Group saved"));
 }
 
 export async function deleteRetreatGroup(id: string) {
   const { supabase, campId } = await requireWritableCamp();
+  const { data: group } = await supabase
+    .from("retreat_groups")
+    .select("google_event_id")
+    .eq("id", id)
+    .eq("camp_id", campId)
+    .maybeSingle();
   await supabase.from("retreat_groups").delete().eq("id", id).eq("camp_id", campId);
+  await removeRetreatGroupFromCalendar(supabase, campId, group?.google_event_id ?? null);
   revalidateGroups();
   redirect(withSaved("/groups", "Group deleted"));
 }

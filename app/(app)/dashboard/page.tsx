@@ -12,6 +12,7 @@ import { addStarterPack } from "@/app/(app)/knowledge-base/actions";
 import { todayISODate, tomorrowISODate, formatRelativeTime, campISODate } from "@/lib/dates";
 import { seasonFor, SEASON_LABELS } from "@/lib/season";
 import { GroupRow } from "@/components/groups/GroupRow";
+import { getAgenda, formatEventWhen } from "@/lib/agenda";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -30,6 +31,7 @@ import {
   Megaphone,
   MessageSquare,
   AtSign,
+  CalendarDays,
 } from "lucide-react";
 import { brand } from "@/lib/brand";
 
@@ -219,6 +221,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const topOverdueTask = dueNow.find(
     (t) => t.due_date && t.due_date < today
   );
+  // What's coming up on the camp's Google Calendar (sample events in demo
+  // mode). Never throws; hidden when no calendar is connected.
+  const agenda = await getAgenda(supabase, campId);
+
   const retreatSection = (
     <>
       {upcomingGroups.length > 0 && (
@@ -230,6 +236,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 <GroupRow key={g.id} group={g} />
               ))}
             </div>
+          </Card>
+        </section>
+      )}
+      {agenda.connected && agenda.events.length > 0 && (
+        <section className="mt-8">
+          <SectionHeading title="Coming up on the calendar" icon={CalendarDays} count={agenda.events.length} tone="primary" />
+          <Card className="px-4">
+            <ul className="divide-y divide-border">
+              {agenda.events.map((event) => (
+                <li key={event.id} className="flex items-baseline justify-between gap-3 py-2.5">
+                  <span className="min-w-0 truncate text-sm font-medium text-foreground">{event.summary}</span>
+                  <span className="shrink-0 text-xs text-muted">{formatEventWhen(event)}</span>
+                </li>
+              ))}
+            </ul>
           </Card>
         </section>
       )}

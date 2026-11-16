@@ -35,6 +35,9 @@ CampFlow camp-office app.
 - **Gmail integration** (optional): connect the camp inbox in Settings. "Sync inbox"
   imports recent primary-inbox emails and triages them; approving a reply files it into
   the Gmail drafts folder in the right thread.
+- **Google Calendar** (optional): a director connects the camp calendar in Settings.
+  Confirmed retreat groups with dates become all-day events (inquiries and tentative holds
+  don't; cancelling removes the event), and Home shows what's coming up.
 - **Knowledge base**: rules, pickup times, packing lists, and policies - the only source
   of camp facts the AI may use. New camps can start from a 10-entry starter pack and
   edit the placeholders.
@@ -72,6 +75,8 @@ every screen, and `/setup` shows what to connect when you want to keep real reco
 
    For Gmail: create OAuth 2.0 credentials in Google Cloud Console, enable the Gmail API,
    and add `<your-app-url>/api/gmail/callback` as an authorized redirect URI.
+   For Google Calendar: enable the Google Calendar API on the same OAuth client and add
+   `<your-app-url>/api/calendar/callback` as another redirect URI.
 
 4. Run the dev server:
 
@@ -147,7 +152,9 @@ Playwright end-to-end tests in demo mode (`npm run test:e2e`; run
 - `app/login` - sign in / sign up (signup auto-creates a camp or accepts an invite)
 - `app/(app)` - authenticated app shell and feature pages: `dashboard`, `tasks`,
   `email-assistant`, `knowledge-base`, `people`, `settings`
-- `app/api/gmail` - OAuth connect/callback routes
+- `app/api/gmail`, `app/api/calendar` - Google OAuth connect/callback routes
+- `lib/google.ts` - shared Google OAuth; `lib/calendar.ts` - Calendar REST client;
+  `lib/retreat-calendar.ts` - puts confirmed retreat groups on the camp calendar
 - `lib/auth.ts` - `requireCamp()`: resolves the signed-in user's camp for every action
 - `lib/ai/email.ts` - OpenAI triage + draft + suggested-task call (structured output)
 - `lib/gmail.ts` / `lib/gmail-account.ts` - Gmail REST client and token refresh

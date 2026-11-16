@@ -303,6 +303,7 @@ export interface Database {
           headcount: number | null;
           status: RetreatGroupStatus;
           notes: string | null;
+          google_event_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -363,6 +364,29 @@ export interface Database {
           expires_at: string;
         };
         Update: Partial<Database["public"]["Tables"]["gmail_accounts"]["Row"]>;
+        Relationships: [];
+      };
+      calendar_accounts: {
+        Row: {
+          camp_id: string;
+          email: string;
+          calendar_id: string;
+          access_token: string;
+          refresh_token: string;
+          expires_at: string;
+          connected_by: string | null;
+          last_synced_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["calendar_accounts"]["Row"]> & {
+          camp_id: string;
+          email: string;
+          access_token: string;
+          refresh_token: string;
+          expires_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["calendar_accounts"]["Row"]>;
         Relationships: [];
       };
     };

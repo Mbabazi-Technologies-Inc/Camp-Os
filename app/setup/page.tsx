@@ -105,7 +105,7 @@ export default function SetupPage() {
               note={
                 googleReady
                   ? "Found."
-                  : "Optional. Only needed to sync Gmail and save replies as Gmail drafts."
+                  : "Optional. Needed to sync Gmail, save replies as Gmail drafts, and put confirmed retreat groups on Google Calendar."
               }
             />
           </div>
